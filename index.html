@@ -428,8 +428,8 @@
 // ==========================================
 const INITIAL_STUDENTS = [
   // 팀장
-  { id:'t1', name:'황영환', group:'팀장', birthDate:'1989-04-03', gender:'남', grade:'교역자', lineupService:'1부', instrument:'', role:'목사', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
-  { id:'t2', name:'김희원', group:'팀장', birthDate:'1992-05-29', gender:'여', grade:'교역자', lineupService:'1부', instrument:'건반', role:'팀장장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t1', name:'황영환', group:'팀장', birthDate:'1989-04-03', gender:'남', grade:'교역자', lineupService:'1부', instrument:'', role:'인도자 / 목사', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t2', name:'김희원', group:'팀장', birthDate:'1992-05-29', gender:'여', grade:'교역자', lineupService:'1부', instrument:'건반', role:'팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t3', name:'김예찬', group:'팀장', birthDate:'1996-11-18', gender:'남', grade:'교사', lineupService:'1부', instrument:'베이스', role:'인도자', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t4', name:'정민지', group:'팀장', birthDate:'1998-02-20', gender:'여', grade:'교사', lineupService:'2부', instrument:'건반', role:'팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t5', name:'정여명', group:'팀장', birthDate:'1999-08-14', gender:'여', grade:'교사', lineupService:'2부', instrument:'', role:'워십 / 팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
@@ -591,6 +591,11 @@ const SEED_CHECKS = {
 };
 
 const GROUP_ORDER = ['팀장','솔라디','라디스','액기스'];
+const PURPLE_ROLES = ['인도자','워십'];
+function roleBadge(r, size='xs') {
+  const isPurple = PURPLE_ROLES.includes(r);
+  return `<span class="text-${size} ${isPurple?'bg-purple-100 text-purple-700':'bg-gray-100 text-gray-600'} px-1.5 py-0.5 rounded-full">${r}</span>`;
+}
 const QT_SCHEDULE = {
   '2026-06-01':'고린도전서 1:1-9','2026-06-02':'고린도전서 1:10-17','2026-06-03':'고린도전서 1:18-31',
   '2026-06-04':'고린도전서 2:1-16','2026-06-05':'고린도전서 3:1-15','2026-06-06':'고린도전서 3:16-4:5',
@@ -624,6 +629,7 @@ let state = {
   currentUser: null,
   qtPosts: [],
   qtComments: [],
+  qtDayChecks: {},
   currentGroup: '전체',
   checkViewMode: 'table',
   birthdayViewMode: 'monthly',
@@ -653,11 +659,12 @@ function loadState() {
   if (!state.pins) state.pins = {};
   if (!state.qtPosts) state.qtPosts = [];
   if (!state.qtComments) state.qtComments = [];
+  if (!state.qtDayChecks) state.qtDayChecks = {};
   // migrate lineupService for existing students
   state.students.forEach(s => { if (!s.lineupService) s.lineupService = '1부'; });
   // migrate student roles
   if (!state._roleMigrated) {
-    const roleFixes = { t1: { role: '목사' }, t5: { role: '워십 / 팀장' } };
+    const roleFixes = { t1: { role: '인도자 / 목사' }, t2: { role: '팀장' }, t5: { role: '워십 / 팀장' } };
     state.students.forEach(s => { if (roleFixes[s.id]) Object.assign(s, roleFixes[s.id]); });
     state._roleMigrated = true;
   }
@@ -680,6 +687,7 @@ function saveState() {
     currentUser: state.currentUser,
     qtPosts: state.qtPosts,
     qtComments: state.qtComments,
+    qtDayChecks: state.qtDayChecks,
     _gateMigrated: state._gateMigrated,
     _roleMigrated: state._roleMigrated,
   }));
@@ -1059,7 +1067,10 @@ function renderStudents() {
   if (group !== '전체') filtered = filtered.filter(s=>s.group===group);
 
   const html = GROUP_ORDER.filter(g=> group==='전체'||g===group).map(g=>{
-    const gs = filtered.filter(s=>s.group===g);
+    const gs = filtered.filter(s=>s.group===g)
+      .sort((a,b) => g==='팀장'
+        ? (parseInt(a.id.replace(/\D/g,''))||99) - (parseInt(b.id.replace(/\D/g,''))||99)
+        : a.name.localeCompare(b.name,'ko'));
     if(!gs.length) return '';
     return `
       <div class="mb-4">
@@ -1082,7 +1093,7 @@ function renderStudents() {
                       <span class="text-xs text-gray-500">${s.gender}</span>
                       ${s.grade ? `<span class="text-xs text-gray-400">${s.grade}</span>` : ''}
                       ${s.instrument ? `<span class="text-xs bg-purple-50 text-purple-600 px-1.5 rounded-full">${s.instrument}</span>` : ''}
-                      ${s.role ? `<span class="text-xs bg-gray-100 text-gray-600 px-1.5 rounded-full">${s.role}</span>` : ''}
+                      ${s.role ? s.role.split(' / ').map(r=>roleBadge(r)).join('') : ''}
                       ${s.status==='군복무' ? `<span class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full">🪖군복무</span>` : ''}
                     </div>
                     <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)}</p>
@@ -1175,7 +1186,7 @@ function renderDetail(id) {
           <p class="text-sm text-gray-600">${s.gender} · ${s.grade||''} ${s.birthDate ? '· 생일 '+formatBirthDate(s.birthDate):''}</p>
           <div class="flex flex-wrap gap-1 mt-1">
             <span class="text-xs ${s.status==='활동중'?'bg-green-100 text-green-700':s.status==='군복무'?'bg-green-200 text-green-800':'bg-gray-100 text-gray-600'} px-2 py-0.5 rounded-full">${s.status==='군복무'?'🪖 군복무':s.status}</span>
-            ${s.role ? `<span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${s.role}</span>` : ''}
+            ${s.role ? s.role.split(' / ').map(r=>roleBadge(r)).join('') : ''}
             ${s.instrument ? `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🎸 ${s.instrument}</span>` : ''}
             ${s.lineupService ? `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">라인업 ${s.lineupService}</span>` : ''}
           </div>
@@ -1365,590 +1376,364 @@ function renderCheckCards(month, weeks) {
 }
 
 // ==========================================
-// QT 게시판 (말씀 큐티)
+// QT 캘린더 게시판
 // ==========================================
-let qtBoardPostId = null;
-let selectedQTDay = null;
+let qtOpenDay = null;
+let qtEditMode = false;
 
 function formatDate(ts) {
   const d = new Date(ts);
   return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-function makePostTitle(satDateStr) {
-  const wdays = ['일','월','화','수','목','금','토'];
-  const days = getWeekDays(satDateStr);
-  const mon = days[0].date, fri = days[4].date;
-  const fmt = d => d.slice(2).replace(/-/g,'');
-  return `${fmt(mon)}(${wdays[new Date(mon).getDay()]})-${fmt(fri)}(${wdays[new Date(fri).getDay()]}) 말씀큐티`;
+function getQTMonthStr() {
+  const keys = Object.keys(QT_SCHEDULE).sort();
+  return keys.length ? keys[0].slice(0,7) : null;
+}
+
+function isDayLocked(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay();
+  const daysToSat = dow === 0 ? 6 : 7 - dow;
+  const sat = new Date(d); sat.setDate(d.getDate() + daysToSat);
+  const fri = new Date(sat); fri.setDate(sat.getDate() - 1); fri.setHours(23, 59, 59, 999);
+  return TODAY > fri;
+}
+
+function getQTWeekSatStr(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay();
+  const daysToSat = dow === 0 ? 6 : 7 - dow;
+  const sat = new Date(d); sat.setDate(d.getDate() + daysToSat);
+  return `${sat.getFullYear()}-${String(sat.getMonth()+1).padStart(2,'0')}-${String(sat.getDate()).padStart(2,'0')}`;
+}
+
+function getQTDayEntry(dateStr) {
+  if (!state.currentUser) return null;
+  return (state.qtDayChecks || {})[`${state.currentUser}_${dateStr}`] || null;
+}
+
+function getQTCurrentWeekDays() {
+  // Return Mon-Fri dates of TODAY's week
+  const d = new Date(TODAY);
+  const dow = d.getDay();
+  const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  const days = [];
+  for (let i = 0; i < 5; i++) {
+    const c = new Date(mon); c.setDate(mon.getDate() + i);
+    const ds = `${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,'0')}-${String(c.getDate()).padStart(2,'0')}`;
+    days.push(ds);
+  }
+  return days;
 }
 
 function renderQTSubmit() {
-  if (qtBoardPostId) renderQTPost(qtBoardPostId);
-  else renderQTPostList();
+  if (qtOpenDay) { renderQTDayView(); return; }
+
+  const qtMonth = getQTMonthStr();
+  if (!qtMonth) {
+    document.getElementById('qt-submit-content').innerHTML = `<div class="text-center py-16 text-gray-400"><p class="text-4xl mb-3">📖</p><p>큐티 일정이 없습니다</p></div>`;
+    return;
+  }
+  const [y, m] = qtMonth.split('-').map(Number);
+
+  // ── Full monthly calendar ──
+  const calWeeks = [];
+  let cur = new Date(y, m-1, 1);
+  const firstDow = cur.getDay();
+  cur.setDate(cur.getDate() - (firstDow === 0 ? 6 : firstDow - 1));
+  const endOfMonth = new Date(y, m, 0);
+  while (cur <= endOfMonth) {
+    const sat = new Date(cur); sat.setDate(cur.getDate() + 5);
+    const satStr = `${sat.getFullYear()}-${String(sat.getMonth()+1).padStart(2,'0')}-${String(sat.getDate()).padStart(2,'0')}`;
+    const fri = new Date(sat); fri.setDate(sat.getDate() - 1); fri.setHours(23,59,59,999);
+    const locked = TODAY > fri;
+    const weekDays = [];
+    for (let i = 0; i < 5; i++) {
+      const c = new Date(cur); c.setDate(cur.getDate() + i);
+      const ds = `${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,'0')}-${String(c.getDate()).padStart(2,'0')}`;
+      weekDays.push({ dateStr: ds, passage: QT_SCHEDULE[ds]||null, inMonth: c.getMonth()+1===m, isToday: ds===TODAY_STR, locked, entry: getQTDayEntry(ds) });
+    }
+    calWeeks.push({ weekDays, locked });
+    cur.setDate(cur.getDate() + 7);
+  }
+
+  const calRows = calWeeks.map(w => {
+    const cells = w.weekDays.map(day => {
+      if (!day.inMonth || !day.passage) {
+        return `<div class="flex-1 min-w-0 py-1.5 text-center">${day.inMonth?`<span class="text-xs text-gray-200">${new Date(day.dateStr+'T00:00:00').getDate()}</span>`:''}</div>`;
+      }
+      const done = !!day.entry?.done;
+      const short = day.passage.replace('고린도전서','고전');
+      const bg = done?'bg-green-100':day.isToday?'bg-blue-50 ring-2 ring-blue-400':day.locked?'bg-gray-50':'bg-white';
+      const txt = done?'text-green-700':day.isToday?'text-blue-700':day.locked?'text-gray-400':'text-gray-700';
+      const ptxt = done?'text-green-500':day.locked?'text-gray-300':'text-blue-500';
+      return `<div class="flex-1 min-w-0 py-1.5 px-0.5 rounded-lg text-center ${bg} ${!day.locked?'cursor-pointer active:scale-95':''} transition-all"
+        ${!day.locked?`onclick="openQTDay('${day.dateStr}')"`:''}>
+        <p class="text-xs font-bold ${txt}">${new Date(day.dateStr+'T00:00:00').getDate()}</p>
+        <p class="text-[9px] leading-tight mt-0.5 ${ptxt}">${short}</p>
+        ${done?'<p class="text-[10px] text-green-600">✓</p>':''}
+      </div>`;
+    }).join('');
+    return `<div class="flex gap-1 mb-1.5">${cells}<div class="flex items-center pl-0.5 w-4">${w.locked?'<span class="text-[9px] text-gray-300">🔒</span>':''}</div></div>`;
+  }).join('');
+
+  // ── This week feed ──
+  const thisWeekDays = getQTCurrentWeekDays();
+  const thisWeekLocked = isDayLocked(thisWeekDays[4]);
+  const DAYNAMES = ['일','월','화','수','목','금','토'];
+
+  const allWeekEntries = Object.entries(state.qtDayChecks || {})
+    .filter(([k, v]) => thisWeekDays.some(ds => k.endsWith('_'+ds)) && v.done)
+    .map(([k, v]) => {
+      const dsMatch = thisWeekDays.find(ds => k.endsWith('_'+ds));
+      const sid = k.slice(0, -(dsMatch.length+1));
+      const s = state.students.find(x => x.id === sid);
+      return s ? { s, v, dateStr: dsMatch } : null;
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.v.createdAt - b.v.createdAt);
+
+  const feed = allWeekEntries.length
+    ? allWeekEntries.map(({ s, v, dateStr }) => {
+        const isMe = s.id === state.currentUser;
+        const dayName = DAYNAMES[new Date(dateStr+'T00:00:00').getDay()];
+        const passage = QT_SCHEDULE[dateStr] || '';
+        return `<div class="bg-white rounded-2xl p-4 shadow-sm ${isMe?'border-l-4 border-purple-400':''}">
+          <div class="flex items-start justify-between mb-2 gap-2">
+            <div class="flex items-center gap-2">
+              <span class="badge-${s.group||'솔라디'} text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0">${s.group?.[0]||'?'}</span>
+              <span class="font-semibold text-gray-800 text-sm">${s.name}${isMe?' <span class="text-xs text-purple-400">(나)</span>':''}</span>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-xs font-semibold text-blue-600">${dayName} · ${passage.replace('고린도전서','고전')}</p>
+              <p class="text-xs text-gray-400">${formatDate(v.createdAt)}</p>
+            </div>
+          </div>
+          ${v.content?`<p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">${v.content}</p>`:''}
+          ${v.imageKey&&qtImages[v.imageKey]?`<img src="${qtImages[v.imageKey]}" class="w-full rounded-xl mt-2 max-h-56 object-cover cursor-pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'14rem':'none'">` : ''}
+          ${isMe&&!thisWeekLocked?`<button onclick="openQTDay('${dateStr}')" class="text-xs text-purple-500 mt-2 underline">수정</button>`:''}
+        </div>`;
+      }).join('')
+    : `<div class="text-center py-8 text-gray-400 bg-white rounded-2xl shadow-sm">
+        <p class="text-2xl mb-1">✏️</p>
+        <p class="text-sm">이번 주 큐티 기록이 없어요</p>
+        <p class="text-xs mt-1 text-gray-300">달력에서 날짜를 탭해 올리세요</p>
+      </div>`;
+
+  const userId = state.currentUser || '';
+  const doneCount = Object.keys(state.qtDayChecks||{}).filter(k=>k.startsWith(userId+'_'+qtMonth)).length;
+  const totalDays = Object.keys(QT_SCHEDULE).filter(k=>k.startsWith(qtMonth)).length;
+
+  document.getElementById('qt-submit-content').innerHTML = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-gray-800">6월 말씀 큐티</h2>
+        <span class="text-xs text-gray-500">내 진도 ${doneCount}/${totalDays}일</span>
+      </div>
+      <div class="bg-gray-50 rounded-2xl p-3 shadow-sm">
+        <div class="flex gap-1 mb-2 px-0.5">
+          ${['월','화','수','목','금'].map(d=>`<div class="flex-1 text-center text-xs font-semibold text-gray-400">${d}</div>`).join('')}
+          <div class="w-4"></div>
+        </div>
+        ${calRows}
+        <p class="text-[10px] text-gray-400 text-center mt-1">날짜 탭 → 큐티 올리기 · 금요일 자정 마감</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-gray-500 mb-2">이번 주 큐티 피드 (${allWeekEntries.length}개)</p>
+        <div class="space-y-3">${feed}</div>
+      </div>
+    </div>`;
 }
 
-function renderQTPostList() {
-  const admin = isAdmin();
-  const posts = [...(state.qtPosts||[])].reverse();
-  const userId = state.currentUser;
+function openQTDay(dateStr) {
+  qtOpenDay = dateStr;
+  qtEditMode = false;
+  renderQTDayView();
+}
 
-  let html = `
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="font-bold text-gray-800">말씀 큐티 게시판</h2>
-      ${admin ? `<button onclick="openCreatePost()" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-full font-semibold">+ 새 글</button>` : ''}
+function closeQTDay() {
+  qtOpenDay = null;
+  qtEditMode = false;
+  renderQTSubmit();
+}
+
+function startEditQTDay(dateStr) {
+  qtEditMode = true;
+  _qtDayPendingImg = null;
+  renderQTDayView();
+}
+
+function renderQTDayView() {
+  const dateStr = qtOpenDay;
+  const passage = QT_SCHEDULE[dateStr];
+  if (!passage) { closeQTDay(); return; }
+
+  const d = new Date(dateStr + 'T00:00:00');
+  const DAYS = ['일','월','화','수','목','금','토'];
+  const dateLabel = `${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})`;
+  const locked = isDayLocked(dateStr);
+  const entry = getQTDayEntry(dateStr);
+  const isToday = dateStr === TODAY_STR;
+
+  let form = '';
+  if (entry?.done && !qtEditMode) {
+    form = `<div class="bg-green-50 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-green-700 font-bold">✓ 큐티 완료</span>
+        <span class="text-xs text-gray-400">${formatDate(entry.createdAt)}</span>
+      </div>
+      ${entry.content ? `<p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">${entry.content}</p>` : '<p class="text-xs text-gray-400">내용 없음</p>'}
+      ${entry.imageKey && qtImages[entry.imageKey] ? `<img src="${qtImages[entry.imageKey]}" class="w-full rounded-xl mt-3 max-h-56 object-cover cursor-pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'14rem':'none'">` : ''}
+      ${!locked ? `<div class="flex gap-2 mt-3">
+        <button onclick="startEditQTDay('${dateStr}')" class="flex-1 py-2 rounded-xl text-sm font-semibold bg-white border border-purple-300 text-purple-700 active:bg-purple-50">수정</button>
+        <button onclick="deleteQTDay('${dateStr}')" class="flex-1 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-400 active:bg-gray-50">삭제</button>
+      </div>` : ''}
     </div>`;
-
-  if (!posts.length) {
-    html += `<div class="text-center py-16 text-gray-400">
-      <p class="text-5xl mb-3">📖</p>
-      <p class="text-sm font-semibold">아직 게시글이 없어요</p>
-      ${admin ? '<p class="text-xs mt-1 text-gray-400">+ 새 글 버튼으로 이번 주 큐티를 등록하세요</p>' : ''}
+  } else if (locked && !entry?.done) {
+    form = `<div class="bg-gray-50 rounded-xl p-4 text-center">
+      <p class="text-sm text-gray-400">🔒 이 주차는 마감되었습니다</p>
     </div>`;
   } else {
-    html += `<div class="space-y-3">
-      ${posts.map(p => {
-        const comments = (state.qtComments||[]).filter(c=>c.postId===p.id);
-        const myComment = comments.find(c=>c.studentId===userId);
-        return `
-          <div class="bg-white rounded-2xl p-4 shadow-sm cursor-pointer active:opacity-80" onclick="openQTPost('${p.id}')">
-            <div class="flex items-start justify-between gap-2">
-              <p class="font-semibold text-gray-800 text-sm leading-snug">${p.title}</p>
-              ${myComment
-                ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">✓ 완료</span>`
-                : `<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0">미제출</span>`}
-            </div>
-            <p class="text-xs text-gray-400 mt-1.5">댓글 ${comments.length}개 · ${formatDate(p.createdAt)}</p>
-          </div>`;
-      }).join('')}
+    // New entry or edit mode
+    const existingContent = qtEditMode && entry ? (entry.content || '') : '';
+    const existingImg = qtEditMode && entry?.imageKey && qtImages[entry.imageKey];
+    form = `<div class="space-y-3">
+      <textarea id="qt-day-text" rows="5" placeholder="오늘 말씀을 묵상하며 느낀 점, 적용할 점을 자유롭게 써주세요..." class="w-full border rounded-xl p-3 text-sm resize-none">${existingContent}</textarea>
+      <div>
+        ${existingImg ? `<div id="qt-day-img-preview"><div class="relative"><img src="${existingImg}" class="w-full rounded-xl max-h-52 object-cover"><button onclick="_qtDayPendingImg=null;document.getElementById('qt-day-img-preview').innerHTML=''" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button></div></div>` : `<div id="qt-day-img-preview"></div>`}
+        <label for="qt-day-img" class="flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-2.5 cursor-pointer mt-2">
+          <span class="text-xl">📷</span><span class="text-xs text-gray-500">사진 첨부 / 변경 (선택)</span>
+        </label>
+        <input type="file" id="qt-day-img" accept="image/*" capture="environment" class="hidden" onchange="qtDayPreviewImg(this)">
+      </div>
+      <div class="flex gap-2">
+        ${qtEditMode ? `<button onclick="qtEditMode=false;renderQTDayView()" class="flex-1 py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500">취소</button>` : ''}
+        <button onclick="submitQTDay('${dateStr}')" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold text-sm active:bg-purple-700">${qtEditMode ? '수정 완료' : '큐티 완료 기록하기'}</button>
+      </div>
     </div>`;
   }
-  document.getElementById('qt-submit-content').innerHTML = html;
-}
 
-function openCreatePost() {
-  if (!isAdmin()) return;
-  const month = state.month;
-  const weeks = getMonthWeeks(month);
-  let weekIdx = weeks.length - 1;
-  // 가장 가까운 미래 주차 선택
-  for (let i = 0; i < weeks.length; i++) {
-    if (new Date(weeks[i].satDate) >= TODAY) { weekIdx = i; break; }
-  }
-  const week = weeks[weekIdx];
-  const weekKey = `${month}-w${weekIdx}`;
-  const existing = (state.qtPosts||[]).find(p=>p.weekKey===weekKey);
-  if (existing) { alert('이미 이번 주 게시글이 있어요'); openQTPost(existing.id); return; }
-  const passages = getWeekDays(week.satDate);
-  const post = {
-    id: 'post_'+Date.now(),
-    title: makePostTitle(week.satDate),
-    weekKey, month, weekIdx,
-    satDate: week.satDate,
-    passages,
-    createdAt: Date.now(),
-  };
-  if (!state.qtPosts) state.qtPosts = [];
-  state.qtPosts.push(post);
-  saveState();
-  openQTPost(post.id);
-}
+  // All entries for this day (sorted: me first, then others by group order)
+  const allEntries = Object.entries(state.qtDayChecks || {})
+    .filter(([k, v]) => k.endsWith('_' + dateStr) && v.done)
+    .map(([k, v]) => {
+      const sid = k.slice(0, -(dateStr.length + 1));
+      const s = state.students.find(x => x.id === sid);
+      return s ? { s, v } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.s.id === state.currentUser) return -1;
+      if (b.s.id === state.currentUser) return 1;
+      return (GROUP_ORDER.indexOf(a.s.group) - GROUP_ORDER.indexOf(b.s.group)) || a.s.name.localeCompare(b.s.name, 'ko');
+    });
 
-function openQTPost(postId) {
-  qtBoardPostId = postId;
-  selectedQTDay = null;
-  renderQTPost(postId);
-}
-
-function closeQTPost() {
-  qtBoardPostId = null;
-  selectedQTDay = null;
-  renderQTPostList();
-}
-
-function renderQTPost(postId) {
-  const post = (state.qtPosts||[]).find(p=>p.id===postId);
-  if (!post) { closeQTPost(); return; }
-  const comments = (state.qtComments||[]).filter(c=>c.postId===postId);
-  const myComment = comments.find(c=>c.studentId===state.currentUser);
-  const admin = isAdmin();
-
-  const passageRows = (post.passages||[]).map(p=>`
-    <div class="flex items-baseline gap-2 py-1 border-b border-blue-100 last:border-0">
-      <span class="text-gray-400 text-xs w-4 flex-shrink-0">${p.day}</span>
-      <span class="text-gray-500 text-xs flex-shrink-0">${p.date.slice(5).replace('-','/')}</span>
-      <span class="text-blue-700 text-xs font-medium">${p.passage||'-'}</span>
-    </div>`).join('');
-
-  const commentList = comments.length
-    ? comments.map(c=>{
-        const s = state.students.find(x=>x.id===c.studentId);
-        const isMe = c.studentId === state.currentUser;
-        return `
-          <div class="rounded-xl p-3 ${isMe?'bg-purple-50 border border-purple-200':'bg-gray-50'}">
-            <div class="flex items-center justify-between mb-1">
-              <div class="flex items-center gap-2">
-                <span class="badge-${s?.group||'솔라디'} text-xs px-1.5 py-0.5 rounded font-semibold">${s?.group?.[0]||'?'}</span>
-                <span class="text-sm font-semibold text-gray-800">${s?.name||'?'}</span>
+  const entriesHtml = allEntries.length
+    ? `<div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs font-semibold text-gray-500 mb-3">큐티 기록 ${allEntries.length}명</p>
+        <div class="space-y-3">
+          ${allEntries.map(({ s, v }) => {
+            const isMe = s.id === state.currentUser;
+            return `<div class="rounded-xl p-3 ${isMe ? 'bg-purple-50 border border-purple-200' : 'bg-gray-50'}">
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-2">
+                  <span class="badge-${s.group||'솔라디'} text-xs px-1.5 py-0.5 rounded font-semibold">${s.group?.[0]||'?'}</span>
+                  <span class="text-sm font-semibold text-gray-800">${s.name}${isMe ? ' <span class="text-xs text-purple-500">(나)</span>' : ''}</span>
+                </div>
+                <span class="text-xs text-gray-400">${formatDate(v.createdAt)}</span>
               </div>
-              <div class="flex items-center gap-2">
-                ${c.qtCount!==undefined&&c.qtCount!==''?`<span class="qt-${c.qtCount} text-xs px-2 py-0.5 rounded-full font-bold">QT ${c.qtCount}일</span>`:''}
-                <span class="text-xs text-gray-400">${formatDate(c.createdAt)}</span>
-              </div>
-            </div>
-            ${c.content?`<p class="text-sm text-gray-700 mt-1 whitespace-pre-wrap leading-relaxed">${c.content}</p>`:''}
-            ${c.imageKey&&qtImages[c.imageKey]?`<img src="${qtImages[c.imageKey]}" class="w-full rounded-lg mt-2 max-h-52 object-cover cursor-pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'13rem':'none'">`:''}
-            ${(isMe||admin)?`<button onclick="deleteQTComment('${c.id}')" class="text-xs text-gray-400 mt-1 underline">삭제</button>`:''}
-          </div>`;
-      }).join('')
-    : `<p class="text-xs text-gray-400 text-center py-6">아직 댓글이 없어요. 첫 번째로 큐티를 올려보세요!</p>`;
+              ${v.content ? `<p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mt-1">${v.content}</p>` : ''}
+              ${v.imageKey && qtImages[v.imageKey] ? `<img src="${qtImages[v.imageKey]}" class="w-full rounded-xl mt-2 max-h-56 object-cover cursor-pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'14rem':'none'">` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+       </div>` : '';
 
-  const commentForm = myComment
-    ? `<div class="bg-green-50 rounded-xl p-3 text-center">
-        <p class="text-sm font-semibold text-green-700">✓ QT ${myComment.qtCount}일 제출 완료</p>
-        <button onclick="deleteQTComment('${myComment.id}')" class="text-xs text-gray-400 mt-1 underline">수정 (삭제 후 재작성)</button>
-       </div>`
-    : `<div class="border-t pt-4 space-y-3">
-        <div>
-          <p class="text-xs font-semibold text-gray-600 mb-2">이번 주 큐티 일수</p>
-          <div class="grid grid-cols-6 gap-1.5" id="qt-day-btns">
-            ${['5','4','3','2','1','0'].map(v=>`
-              <button onclick="selectQTDay('${v}')" id="qtday-${v}"
-                class="py-2.5 rounded-xl text-sm font-bold border-2 border-gray-200 bg-white text-gray-700">
-                ${v==='0'?'못함':v+'일'}
-              </button>`).join('')}
-          </div>
-        </div>
-        <div>
-          <p class="text-xs font-semibold text-gray-600 mb-1">묵상 내용 <span class="font-normal text-gray-400">(선택)</span></p>
-          <textarea id="qt-comment-text" rows="4" placeholder="말씀 나눔, 느낀점, 적용점을 자유롭게 써주세요..." class="w-full border rounded-xl p-3 text-sm"></textarea>
-        </div>
-        <div>
-          <p class="text-xs font-semibold text-gray-600 mb-1">사진 첨부 <span class="font-normal text-gray-400">(선택)</span></p>
-          <label for="qt-img-input" class="flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-2.5 cursor-pointer hover:border-purple-400">
-            <span class="text-xl">📷</span><span class="text-xs text-gray-500">큐티 노트 사진</span>
-          </label>
-          <input type="file" id="qt-img-input" accept="image/*" capture="environment" class="hidden" onchange="qtPreviewImg(this)">
-          <div id="qt-img-preview" class="mt-2"></div>
-        </div>
-        <button onclick="submitQTComment('${post.id}')" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold text-sm">큐티 제출하기</button>
-      </div>`;
-
-  const html = `
+  document.getElementById('qt-submit-content').innerHTML = `
     <div class="space-y-4">
-      <button onclick="closeQTPost()" class="flex items-center gap-1 text-purple-700 font-semibold text-sm">← 목록</button>
+      <button onclick="closeQTDay()" class="flex items-center gap-1 text-purple-700 font-semibold text-sm">← 달력</button>
       <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <h2 class="font-bold text-gray-800 mb-3">${post.title}</h2>
-        ${passageRows ? `<div class="bg-blue-50 rounded-xl p-3">${passageRows}</div>` : ''}
-        ${admin ? `<button onclick="deletePost('${post.id}')" class="text-xs text-gray-400 mt-2 underline">게시글 삭제</button>` : ''}
+        <p class="text-xs text-gray-400 mb-1">${dateLabel}${isToday ? ' <span class=\'text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full\'>오늘</span>' : ''}</p>
+        <h2 class="font-bold text-gray-800 text-base">${passage}</h2>
       </div>
       <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs font-semibold text-gray-500 mb-3">큐티 ${comments.length}명 제출</p>
-        <div class="space-y-2 mb-4">${commentList}</div>
-        ${commentForm}
+        <p class="text-xs font-semibold text-gray-500 mb-3">내 큐티 기록</p>
+        ${form}
       </div>
+      ${entriesHtml}
     </div>`;
-  document.getElementById('qt-submit-content').innerHTML = html;
 }
 
-function selectQTDay(v) {
-  selectedQTDay = v;
-  ['5','4','3','2','1','0'].forEach(k => {
-    const btn = document.getElementById(`qtday-${k}`);
-    if (!btn) return;
-    if (k === v) btn.className = btn.className.replace('border-gray-200 bg-white text-gray-700','border-purple-500 bg-purple-50 text-purple-700');
-    else btn.className = btn.className.replace('border-purple-500 bg-purple-50 text-purple-700','border-gray-200 bg-white text-gray-700');
-  });
-}
+let _qtDayPendingImg = null;
 
-let _qtPendingImg = null;
-
-function qtPreviewImg(input) {
+function qtDayPreviewImg(input) {
   if (!input.files?.[0]) return;
   compressImage(input.files[0], data => {
-    _qtPendingImg = data;
-    const el = document.getElementById('qt-img-preview');
-    if (el) el.innerHTML = `<div class="relative"><img src="${data}" class="w-full rounded-xl max-h-52 object-cover"><button onclick="_qtPendingImg=null;document.getElementById('qt-img-preview').innerHTML=''" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button></div>`;
+    _qtDayPendingImg = data;
+    const el = document.getElementById('qt-day-img-preview');
+    if (el) el.innerHTML = `<div class="relative"><img src="${data}" class="w-full rounded-xl max-h-52 object-cover"><button onclick="_qtDayPendingImg=null;document.getElementById('qt-day-img-preview').innerHTML=''" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button></div>`;
   });
 }
 
-function submitQTComment(postId) {
+function submitQTDay(dateStr) {
   if (!state.currentUser) return;
-  if (selectedQTDay === null) { alert('큐티 일수를 선택해 주세요'); return; }
-  const post = (state.qtPosts||[]).find(p=>p.id===postId);
-  if (!post) return;
-  const content = document.getElementById('qt-comment-text')?.value || '';
-  let imageKey = null;
-  if (_qtPendingImg) {
-    imageKey = checkKey(state.currentUser, post.month, post.weekIdx) + '_qt';
-    qtImages[imageKey] = _qtPendingImg;
+  const content = (document.getElementById('qt-day-text')?.value || '').trim();
+  const key = `${state.currentUser}_${dateStr}`;
+  if (!state.qtDayChecks) state.qtDayChecks = {};
+  const existing = state.qtDayChecks[key];
+  // Keep existing imageKey if no new image uploaded and preview wasn't cleared
+  let imageKey = existing?.imageKey || null;
+  if (_qtDayPendingImg) {
+    imageKey = `${state.currentUser}_${dateStr}_qt`;
+    qtImages[imageKey] = _qtDayPendingImg;
     saveQTImages();
-    _qtPendingImg = null;
+    _qtDayPendingImg = null;
+  } else if (document.getElementById('qt-day-img-preview')?.innerHTML === '') {
+    // Preview was cleared → remove old image
+    if (existing?.imageKey) { delete qtImages[existing.imageKey]; saveQTImages(); }
+    imageKey = null;
   }
-  const comment = { id:'c_'+Date.now(), postId, studentId:state.currentUser, content, qtCount:selectedQTDay, imageKey, createdAt:Date.now() };
-  if (!state.qtComments) state.qtComments = [];
-  state.qtComments.push(comment);
-  // auto-update check data
-  const c = getCheck(state.currentUser, post.month, post.weekIdx);
-  c.qt = selectedQTDay; c.qtContent = content;
-  setCheck(state.currentUser, post.month, post.weekIdx, c);
-  selectedQTDay = null;
-  renderQTPost(postId);
-}
-
-function deleteQTComment(commentId) {
-  const c = (state.qtComments||[]).find(x=>x.id===commentId);
-  if (!c) return;
-  if (c.studentId !== state.currentUser && !isAdmin()) return;
-  const postId = c.postId;
-  state.qtComments = state.qtComments.filter(x=>x.id!==commentId);
+  const createdAt = qtEditMode && existing ? existing.createdAt : Date.now();
+  state.qtDayChecks[key] = { done: true, content, imageKey, createdAt };
+  qtEditMode = false;
+  updateWeekQTCount(dateStr);
   saveState();
-  renderQTPost(postId);
+  renderQTDayView();
 }
 
-function deletePost(postId) {
-  if (!isAdmin()) return;
-  if (!confirm('게시글을 삭제할까요?')) return;
-  state.qtPosts = (state.qtPosts||[]).filter(p=>p.id!==postId);
-  state.qtComments = (state.qtComments||[]).filter(c=>c.postId!==postId);
+function deleteQTDay(dateStr) {
+  if (!state.currentUser) return;
+  const key = `${state.currentUser}_${dateStr}`;
+  if (state.qtDayChecks) delete state.qtDayChecks[key];
+  updateWeekQTCount(dateStr);
   saveState();
-  closeQTPost();
+  renderQTDayView();
 }
 
-// legacy stub (no longer used but referenced in navigate)
-function getQTWeekInfo(month) {
-  const weeks = getMonthWeeks(month);
-  // 오늘 기준 현재 또는 가장 가까운 주차 반환
-  for (let i = 0; i < weeks.length; i++) {
-    const sat = new Date(weeks[i].satDate);
-    const fri = new Date(sat); fri.setDate(sat.getDate() - 1); // 금요일
-    fri.setHours(23, 59, 59);
-    if (TODAY <= fri) return { weekIdx: i, week: weeks[i], deadline: fri };
+function updateWeekQTCount(dateStr) {
+  if (!state.currentUser) return;
+  // Find Monday of this week
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay();
+  const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  // Saturday of this week → month + weekIdx
+  const sat = new Date(mon); sat.setDate(mon.getDate() + 5);
+  const satStr = `${sat.getFullYear()}-${String(sat.getMonth()+1).padStart(2,'0')}-${String(sat.getDate()).padStart(2,'0')}`;
+  const satMonth = satStr.slice(0, 7);
+  const weeks = getMonthWeeks(satMonth);
+  const weekIdx = weeks.findIndex(w => w.satDate === satStr);
+  if (weekIdx < 0) return;
+  // Count Mon-Fri done days
+  let count = 0;
+  for (let i = 0; i < 5; i++) {
+    const c = new Date(mon); c.setDate(mon.getDate() + i);
+    const ds = `${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,'0')}-${String(c.getDate()).padStart(2,'0')}`;
+    if (state.qtDayChecks?.[`${state.currentUser}_${ds}`]?.done) count++;
   }
-  // 모두 지났으면 마지막 주차
-  const last = weeks[weeks.length - 1];
-  const sat = new Date(last.satDate);
-  const fri = new Date(sat); fri.setDate(sat.getDate() - 1);
-  fri.setHours(23, 59, 59);
-  return { weekIdx: weeks.length - 1, week: last, deadline: fri };
-}
-
-let qtSelectedWeek = null;
-let qtSelectedMonth = null;
-
-function renderQTSubmit() {
-  const user = getCurrentUser();
-  const month = state.month;
-  const weeks = getMonthWeeks(month);
-  const info = getQTWeekInfo(month);
-  if (qtSelectedWeek === null || qtSelectedMonth !== month) {
-    qtSelectedWeek = info.weekIdx;
-    qtSelectedMonth = month;
-  }
-
-  const deadlinePassed = TODAY > info.deadline;
-  const deadlineStr = (() => {
-    const d = info.deadline;
-    return `${d.getMonth()+1}/${d.getDate()} (금) 23:59`;
-  })();
-
-  // legacy: redirect to new board
-  renderQTPostList();
-}
-
-function renderQTSubmitMember_UNUSED(user, month, weeks, deadlinePassed, deadlineStr) {
-  if (!user) { document.getElementById('qt-submit-content').innerHTML = '<p class="text-center text-gray-400 py-8">로그인이 필요합니다</p>'; return; }
-
-  const isLeader = user.group === '팀장';
-  const weekIdx = qtSelectedWeek;
-  const week = weeks[weekIdx];
-  if (!week) { document.getElementById('qt-submit-content').innerHTML = '<p class="text-center text-gray-400 py-8">해당 주차 없음</p>'; return; }
-
-  const c = getCheck(user.id, month, weekIdx);
-  const alreadySubmitted = c.qt !== '' && c.qt !== undefined;
-
-  const fri = new Date(week.satDate); fri.setDate(fri.getDate() - 1); fri.setHours(23, 59, 59);
-  const thisDeadlinePassed = TODAY > fri;
-  const thisDeadlineStr = `${fri.getMonth()+1}/${fri.getDate()} (금) 23:59`;
-
-  const html = `
-    <div class="space-y-4">
-      <div class="bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl p-4 text-white">
-        <p class="text-xs opacity-80 font-semibold mb-1">QT 제출</p>
-        <p class="text-xl font-bold">${user.name}</p>
-        <p class="text-sm opacity-90">${user.group}${user.grade ? ' · '+user.grade : ''}</p>
-      </div>
-
-      <!-- 주차 선택 -->
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-2">주차 선택</p>
-        <div class="flex gap-2 flex-wrap">
-          ${weeks.map((w,i) => `
-            <button onclick="qtSelectWeek(${i})" class="text-xs px-3 py-1.5 rounded-full font-semibold ${i===weekIdx?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}">
-              ${w.label}
-            </button>`).join('')}
-        </div>
-      </div>
-
-      <!-- 현재 주차 상태 -->
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <p class="text-sm font-bold text-gray-800">${week.label} <span class="text-xs text-gray-400 font-normal">${week.satDate.slice(5)} ~ ${week.sunDate.slice(5)}</span></p>
-          ${thisDeadlinePassed
-            ? `<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">마감됨</span>`
-            : `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">~${thisDeadlineStr}</span>`}
-        </div>
-
-        ${alreadySubmitted ? `
-          <div class="bg-green-50 rounded-xl p-3 flex items-center gap-2 mb-3">
-            <span class="text-green-600 text-lg">✓</span>
-            <div>
-              <p class="text-sm font-semibold text-green-700">이미 제출됨</p>
-              <p class="text-xs text-gray-500">QT ${c.qt}점${c.memo ? ' · '+c.memo : ''}</p>
-            </div>
-          </div>` : ''}
-
-        <p class="text-xs font-semibold text-gray-600 mb-2">QT 점수 (이번 주 큐티 일수)</p>
-        <div class="grid grid-cols-6 gap-2 mb-3">
-          ${['5','4','3','2','1','0'].map(v => `
-            <button onclick="qtSetScore('${v}')" id="qt-score-${v}"
-              class="py-3 rounded-xl text-sm font-bold border-2 ${c.qt===v?'border-purple-500 bg-purple-50 text-purple-700':'border-gray-200 bg-white text-gray-700'} transition-all">
-              ${v}${v==='0'?'':'점'}${v==='0'?'<br><span class=\'text-xs\'>못함</span>':''}
-            </button>`).join('')}
-        </div>
-
-        ${!isLeader ? `
-        <p class="text-xs font-semibold text-gray-600 mb-2">가테 (가사 테스트)</p>
-        <div class="flex gap-2 mb-3">
-          ${[['O','통과'],['X','미완료'],['','아직']].map(([v,l]) => `
-            <button onclick="qtSetGate('${v}')" id="qt-gate-${v||'empty'}"
-              class="flex-1 py-2 rounded-xl text-sm font-semibold border-2 ${c.gate===v?'border-purple-500 bg-purple-50 text-purple-700':'border-gray-200 bg-white text-gray-700'} transition-all">
-              ${l}
-            </button>`).join('')}
-        </div>` : ''}
-
-        <!-- 이번 주 본문 -->
-        ${(() => {
-          const passages = getWeekPassages(week.satDate);
-          if (!passages.length) return '';
-          return `<div class="bg-blue-50 rounded-xl p-3 mb-3">
-            <p class="text-xs font-semibold text-blue-700 mb-2">📖 이번 주 큐티 본문</p>
-            <div class="space-y-1">
-              ${passages.map(p=>`<div class="flex gap-2 text-xs"><span class="text-gray-400 w-4">${p.day}</span><span class="text-gray-500">${p.date}</span><span class="text-blue-700 font-medium">${p.passage}</span></div>`).join('')}
-            </div>
-          </div>`;
-        })()}
-
-        <!-- QT 내용 작성 -->
-        <p class="text-xs font-semibold text-gray-600 mb-1">✏️ QT 내용 작성 <span class="font-normal text-gray-400">(묵상, 느낀점 등)</span></p>
-        <textarea id="qt-content" rows="4" placeholder="이번 주 큐티 내용을 자유롭게 적어주세요..." class="w-full border rounded-xl p-3 text-sm mb-3">${c.qtContent||''}</textarea>
-
-        <!-- 이미지 첨부 -->
-        <p class="text-xs font-semibold text-gray-600 mb-1">📷 큐티 노트 사진 첨부 <span class="font-normal text-gray-400">(선택)</span></p>
-        <div class="mb-3">
-          <label for="qt-image-input" class="flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-3 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
-            <span class="text-2xl">📎</span>
-            <span class="text-sm text-gray-500">사진을 선택하거나 촬영하세요</span>
-          </label>
-          <input type="file" id="qt-image-input" accept="image/*" capture="environment" class="hidden" onchange="qtPreviewImage(this)">
-          <div id="qt-image-preview" class="mt-2">
-            ${qtImages[checkKey(user.id, month, weekIdx)] ? `
-              <div class="relative">
-                <img src="${qtImages[checkKey(user.id, month, weekIdx)]}" class="w-full rounded-xl object-cover max-h-64">
-                <button onclick="qtClearImage('${checkKey(user.id, month, weekIdx)}')" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">삭제</button>
-              </div>` : ''}
-          </div>
-        </div>
-
-        <p class="text-xs font-semibold text-gray-600 mb-1">메모</p>
-        <textarea id="qt-memo" rows="1" placeholder="특이사항" class="w-full border rounded-xl p-3 text-sm mb-3">${c.memo||''}</textarea>
-
-        <button onclick="submitQT()" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold text-sm ${thisDeadlinePassed?'opacity-50':''}" ${thisDeadlinePassed?'disabled':''}>
-          ${alreadySubmitted ? '다시 제출 (수정)' : 'QT 제출하기'}
-        </button>
-        ${thisDeadlinePassed ? '<p class="text-xs text-red-500 text-center mt-1">마감 시간이 지났습니다</p>' : ''}
-      </div>
-    </div>
-  `;
-  document.getElementById('qt-submit-content').innerHTML = html;
-}
-
-function renderQTSubmitAdmin(month, weeks) {
-  const students = activeStudents().filter(s => s.group !== '팀장');
-  const weekIdx = qtSelectedWeek;
-  const week = weeks[weekIdx];
-  if (!week) return;
-
-  const submitted = [], notSubmitted = [];
-  students.forEach(s => {
-    const c = getCheck(s.id, month, weekIdx);
-    if (c.qt !== '') submitted.push({ s, c });
-    else notSubmitted.push(s);
-  });
-
-  const fri = new Date(week.satDate); fri.setDate(fri.getDate() - 1); fri.setHours(23,59,59);
-  const thisDeadlineStr = `${fri.getMonth()+1}/${fri.getDate()}(금) 23:59`;
-
-  const html = `
-    <div class="space-y-4">
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-2">주차 선택</p>
-        <div class="flex gap-2 flex-wrap">
-          ${weeks.map((w,i) => `
-            <button onclick="qtSelectWeek(${i})" class="text-xs px-3 py-1.5 rounded-full font-semibold ${i===weekIdx?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}">
-              ${w.label}
-            </button>`).join('')}
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <p class="font-bold text-gray-800">${week.label} QT 제출 현황</p>
-          <span class="text-xs text-gray-400">마감 ${thisDeadlineStr}</span>
-        </div>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div class="bg-green-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-green-700">${submitted.length}</p>
-            <p class="text-xs text-gray-500 mt-1">제출 완료</p>
-          </div>
-          <div class="bg-red-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-red-500">${notSubmitted.length}</p>
-            <p class="text-xs text-gray-500 mt-1">미제출</p>
-          </div>
-        </div>
-
-        ${submitted.length ? `
-          <p class="text-xs font-semibold text-gray-500 mb-2">✅ 제출 완료 (${submitted.length}명)</p>
-          <div class="space-y-2 mb-4">
-            ${submitted.map(({s,c}) => {
-              const img = qtImages[checkKey(s.id, month, weekIdx)];
-              return `<div class="bg-green-50 rounded-xl p-3">
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <span class="badge-${s.group} text-xs px-1.5 py-0.5 rounded font-semibold">${s.group[0]}</span>
-                    <span class="text-sm font-semibold text-gray-800">${s.name}</span>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <span class="qt-${c.qt} text-xs px-2 py-0.5 rounded-full font-bold">${c.qt}점</span>
-                    ${c.gate ? `<span class="${c.gate==='O'?'st-O':'st-X'} text-xs px-1.5 rounded">가테${c.gate}</span>` : ''}
-                  </div>
-                </div>
-                ${c.qtContent ? `<p class="text-xs text-gray-600 bg-white rounded-lg p-2 mt-1">${c.qtContent.replace(/\n/g,'<br>')}</p>` : ''}
-                ${img ? `<img src="${img}" class="w-full rounded-lg mt-2 max-h-48 object-cover cursor-pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'12rem':'none'">` : ''}
-                ${c.memo ? `<p class="text-xs text-gray-400 mt-1">📝 ${c.memo}</p>` : ''}
-              </div>`;
-            }).join('')}
-          </div>` : ''}
-
-        ${notSubmitted.length ? `
-          <p class="text-xs font-semibold text-gray-500 mb-2">❌ 미제출 (${notSubmitted.length}명)</p>
-          <div class="flex flex-wrap gap-2">
-            ${notSubmitted.map(s => `
-              <span class="badge-${s.group} text-xs px-2 py-1 rounded-full font-semibold">${s.name}</span>
-            `).join('')}
-          </div>` : ''}
-      </div>
-    </div>
-  `;
-  document.getElementById('qt-submit-content').innerHTML = html;
-}
-
-let tempQTScore = null;
-let tempQTGate = null;
-
-function qtSelectWeek(idx) {
-  qtSelectedWeek = idx;
-  qtSelectedMonth = state.month;
-  renderQTSubmit();
-}
-
-function qtSetScore(v) {
-  const user = getCurrentUser();
-  if (!user) return;
-  const c = getCheck(user.id, state.month, qtSelectedWeek);
-  tempQTScore = v;
-  // Update button highlight
-  ['5','4','3','2','1','0'].forEach(s => {
-    const btn = document.getElementById(`qt-score-${s}`);
-    if (btn) {
-      btn.className = btn.className.replace(/border-purple-500 bg-purple-50 text-purple-700/g, 'border-gray-200 bg-white text-gray-700');
-      if (s === v) btn.className = btn.className.replace('border-gray-200 bg-white text-gray-700', 'border-purple-500 bg-purple-50 text-purple-700');
-    }
-  });
-}
-
-function qtSetGate(v) {
-  tempQTGate = v;
-  ['O','X','empty'].forEach(k => {
-    const btn = document.getElementById(`qt-gate-${k}`);
-    if (btn) {
-      btn.className = btn.className.replace(/border-purple-500 bg-purple-50 text-purple-700/g, 'border-gray-200 bg-white text-gray-700');
-    }
-  });
-  const active = document.getElementById(`qt-gate-${v||'empty'}`);
-  if (active) active.className = active.className.replace('border-gray-200 bg-white text-gray-700', 'border-purple-500 bg-purple-50 text-purple-700');
-}
-
-function submitQT() {
-  const user = getCurrentUser();
-  if (!user) return;
-  const score = tempQTScore;
-  if (score === null || score === undefined) { alert('QT 점수를 선택해 주세요'); return; }
-
-  const gate = tempQTGate ?? '';
-  const memo = document.getElementById('qt-memo')?.value || '';
-  const content = document.getElementById('qt-content')?.value || '';
-  const c = getCheck(user.id, state.month, qtSelectedWeek);
-  c.qt = score;
-  if (user.group !== '팀장') c.gate = gate;
-  c.memo = memo;
-  c.qtContent = content;
-  setCheck(user.id, state.month, qtSelectedWeek, c);
-
-  // Save pending image
-  if (tempQTImageData) {
-    qtImages[checkKey(user.id, state.month, qtSelectedWeek)] = tempQTImageData;
-    saveQTImages();
-    tempQTImageData = null;
-  }
-
-  tempQTScore = null;
-  tempQTGate = null;
-
-  const btn = document.querySelector('#qt-submit-content button[onclick="submitQT()"]');
-  if (btn) { btn.textContent = '✓ 제출 완료!'; btn.className = btn.className.replace('bg-purple-600','bg-green-600'); }
-  setTimeout(() => renderQTSubmit(), 1000);
-}
-
-let tempQTImageData = null;
-
-function qtPreviewImage(input) {
-  if (!input.files || !input.files[0]) return;
-  const file = input.files[0];
-  compressImage(file, (data) => {
-    tempQTImageData = data;
-    const preview = document.getElementById('qt-image-preview');
-    if (preview) {
-      preview.innerHTML = `<div class="relative">
-        <img src="${data}" class="w-full rounded-xl object-cover max-h-64">
-        <button onclick="qtClearImageTemp()" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">삭제</button>
-      </div>`;
-    }
-  });
-}
-
-function qtClearImageTemp() {
-  tempQTImageData = null;
-  const preview = document.getElementById('qt-image-preview');
-  if (preview) preview.innerHTML = '';
-  const input = document.getElementById('qt-image-input');
-  if (input) input.value = '';
-}
-
-function qtClearImage(key) {
-  delete qtImages[key];
-  saveQTImages();
-  renderQTSubmit();
+  const check = getCheck(state.currentUser, satMonth, weekIdx);
+  check.qt = String(count);
+  setCheck(state.currentUser, satMonth, weekIdx, check);
 }
 
 // ==========================================
@@ -2157,6 +1942,14 @@ function renderBirthday() {
 // ==========================================
 // LINEUP
 // ==========================================
+
+// 팀장 라인업 그룹 매핑: 각 분과에 추가로 포함할 팀장 ID
+const LINEUP_GROUP_LEADERS = {
+  '솔라디': ['t3'],             // 김예찬
+  '라디스': ['t5'],             // 정여명
+  '액기스': ['t3', 't2', 't4'], // 김예찬, 김희원, 정민지
+};
+
 let lineupService = '1부';
 
 function switchLineupService(svc) {
@@ -2170,7 +1963,7 @@ function switchLineupService(svc) {
 
 function renderLineup() {
   const month = state.month;
-  const html = `
+  document.getElementById('lineup-content').innerHTML = `
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-bold text-gray-800">${monthName(month)} 라인업</h2>
     </div>
@@ -2182,41 +1975,47 @@ function renderLineup() {
     </div>
     <div id="lineup-weeks"></div>
   `;
-  document.getElementById('lineup-content').innerHTML = html;
   renderLineupSelection();
 }
 
 function renderLineupSelection() {
   const month = state.month;
   const weeks = getMonthWeeks(month);
-  // 마지막 주차(5주차)만 표시
   const weekIdx = weeks.length - 1;
   const week = weeks[weekIdx];
   if (!week) { document.getElementById('lineup-weeks').innerHTML = '<p class="text-center text-gray-400 py-8">주차 정보 없음</p>'; return; }
 
   const admin = isAdmin();
+  const svc = lineupService;
   const groups = ['솔라디','라디스','액기스'];
 
   let totalIn = 0;
   const groupBlocks = groups.map(g => {
-    const members = activeStudents()
-      .filter(s => s.group === g && (s.lineupService === lineupService || s.lineupService === '둘다') && s.status !== '군복무')
+    const base = activeStudents()
+      .filter(s => s.group === g && s.status !== '군복무')
       .sort((a,b) => a.name.localeCompare(b.name, 'ko'));
+    const extraIds = LINEUP_GROUP_LEADERS[g] || [];
+    const extra = extraIds.map(id => state.students.find(s => s.id === id)).filter(Boolean);
+    const members = [...base, ...extra];
     if (!members.length) return '';
 
     let gIn = 0;
     const chips = members.map(s => {
-      const key = `${s.id}_${month}_w${weekIdx}`;
-      const isIn = state.lineups[key]?.final === '가능';
+      const key = `${s.id}_${month}_w${weekIdx}_${svc}`;
+      const entry = state.lineups[key];
+      const isIn = entry?.final === '가능';
+      const isKeyboard = s.instrument === '건반';
+      const keyRole = entry?.keyRole;
       if (isIn) { gIn++; totalIn++; }
-
-      const style = isIn
-        ? 'bg-green-500 text-white shadow-sm'
-        : 'bg-gray-100 text-gray-600 border border-gray-200';
-
-      const instLabel = s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : '';
+      let style;
+      if (isIn && isKeyboard && keyRole === '세컨') style = 'bg-blue-500 text-white shadow-sm';
+      else if (isIn) style = 'bg-green-500 text-white shadow-sm';
+      else style = 'bg-gray-100 text-gray-600 border border-gray-200';
+      const instLabel = isKeyboard && isIn
+        ? `<span class="text-xs opacity-90 ml-0.5">${keyRole}</span>`
+        : (s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : '');
       return `<button
-        ${admin ? `onclick="toggleLineupMember('${s.id}',${weekIdx})"` : ''}
+        ${admin ? `onclick="toggleLineupMember('${s.id}',${weekIdx},'${svc}')"` : ''}
         class="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${style} ${admin?'active:scale-95 cursor-pointer':'cursor-default'}">
         ${isIn?'<span class="text-xs">✓</span>':''}${s.name}${instLabel}
       </button>`;
@@ -2232,29 +2031,32 @@ function renderLineupSelection() {
       </div>`;
   }).join('');
 
-  const html = `
+  document.getElementById('lineup-weeks').innerHTML = `
     <div class="bg-white rounded-2xl p-4 shadow-sm">
       <div class="flex items-center justify-between mb-1">
         <h3 class="font-semibold text-gray-800">${week.label}
           <span class="text-xs text-gray-400 font-normal ml-1">토 ${week.satDate.slice(5)} / 주 ${week.sunDate.slice(5)}</span>
         </h3>
-        <span class="lineup-가능 text-xs px-2 py-0.5 rounded-full">${totalIn}명</span>
+        <span class="lineup-가능 text-xs px-2 py-0.5 rounded-full">${totalIn}명 선택</span>
       </div>
-      ${admin ? '<p class="text-xs text-purple-500 mb-4">이름을 탭하면 선택 ↔ 해제 (두 번 탭: 제외)</p>' : ''}
+      ${admin ? '<p class="text-xs text-purple-500 mb-4">이름을 탭하면 선택 ↔ 해제</p>' : ''}
       ${groupBlocks}
-    </div>
-  `;
-  document.getElementById('lineup-weeks').innerHTML = html;
+    </div>`;
 }
 
-function toggleLineupMember(studentId, weekIdx) {
+function toggleLineupMember(studentId, weekIdx, svc) {
   if (!isAdmin()) return;
-  const key = `${studentId}_${state.month}_w${weekIdx}`;
-  const currentFinal = state.lineups[key]?.final ?? '';
-  // 탭: (미선택) → 가능 → (미선택)
-  const newFinal = currentFinal === '가능' ? '' : '가능';
-  if (newFinal === '') delete state.lineups[key];
-  else state.lineups[key] = { final: newFinal };
+  const key = `${studentId}_${state.month}_w${weekIdx}_${svc||lineupService}`;
+  const s = state.students.find(x => x.id === studentId);
+  const isKeyboard = s?.instrument === '건반';
+  const cur = state.lineups[key];
+  if (!cur || cur.final === '') {
+    state.lineups[key] = { final: '가능', keyRole: isKeyboard ? '메인' : null };
+  } else if (isKeyboard && cur.keyRole === '메인') {
+    state.lineups[key] = { final: '가능', keyRole: '세컨' };
+  } else {
+    delete state.lineups[key];
+  }
   saveState();
   renderLineupSelection();
 }
