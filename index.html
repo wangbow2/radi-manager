@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>라디 통합 관리</title>
+<title>수영로고 LADI 찬양팀</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
@@ -42,6 +42,9 @@
   table th, table td { white-space: nowrap; }
   .birthday-today { border: 2px solid #EC4899; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+  #login-screen { display:flex; }
+  .pin-input { letter-spacing: 0.5em; font-size: 1.5rem; text-align:center; }
+  .no-edit { pointer-events:none; }
   .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
   .modal.open { display:flex; }
   input[type="text"], input[type="date"], select, textarea {
@@ -56,8 +59,13 @@
 <!-- Header -->
 <header class="bg-purple-700 text-white px-4 py-3 fixed top-0 left-0 right-0 z-50 shadow-md">
   <div class="flex items-center justify-between max-w-2xl mx-auto">
-    <h1 class="text-lg font-bold">🎵 라디 통합 관리</h1>
-    <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
+    <h1 class="text-lg font-bold">🎵 수영로고 LADI 찬양팀</h1>
+    <div class="flex items-center gap-2">
+      <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
+      <button id="header-user-btn" onclick="showUserMenu()" class="flex items-center gap-1 bg-purple-600 px-2 py-1 rounded-full text-sm">
+        <span>👤</span><span id="header-user-name" class="text-xs max-w-16 truncate"></span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -77,7 +85,7 @@
       <button onclick="filterGroup('솔라디')" id="grp-솔라디" class="grp-btn text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300">솔라디</button>
       <button onclick="filterGroup('라디스')" id="grp-라디스" class="grp-btn text-xs px-3 py-1 rounded-full bg-orange-100 text-orange-800 font-semibold border border-orange-300">라디스</button>
       <button onclick="filterGroup('액기스')" id="grp-액기스" class="grp-btn text-xs px-3 py-1 rounded-full bg-green-100 text-green-800 font-semibold border border-green-300">액기스</button>
-      <button onclick="openAddStudent()" class="ml-auto text-xs px-3 py-1 rounded-full bg-purple-600 text-white font-semibold">+ 추가</button>
+      <button onclick="openAddStudent()" id="btn-add-student" class="ml-auto text-xs px-3 py-1 rounded-full bg-purple-600 text-white font-semibold">+ 추가</button>
     </div>
     <div id="student-list"></div>
   </div>
@@ -317,6 +325,77 @@
   </div>
 </div>
 
+<!-- Login Screen -->
+<div id="login-screen" class="fixed inset-0 z-[300] flex items-center justify-center bg-gradient-to-br from-purple-800 to-purple-600">
+  <div class="bg-white rounded-3xl w-full max-w-sm mx-4 overflow-hidden shadow-2xl">
+    <div class="bg-gradient-to-r from-purple-600 to-purple-700 p-6 text-center">
+      <div class="text-4xl mb-2">🎵</div>
+      <h1 class="text-xl font-bold text-white">수영로고 LADI 찬양팀</h1>
+      <p class="text-purple-200 text-sm mt-1">OT 체크 관리 시스템</p>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">이름 선택</label>
+        <select id="login-name-select" class="w-full border rounded-xl p-3 text-sm">
+          <option value="">이름을 선택하세요</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">PIN 번호 (4자리)</label>
+        <input type="password" id="login-pin" maxlength="4" inputmode="numeric" placeholder="● ● ● ●"
+               class="pin-input w-full border rounded-xl p-3"
+               onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <p id="login-error" class="text-xs text-red-500 text-center hidden">PIN 번호가 올바르지 않습니다</p>
+      <button onclick="doLogin()" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold text-sm">로그인</button>
+      <p class="text-xs text-gray-400 text-center">처음 PIN은 <span class="font-bold text-purple-600">0000</span> 입니다</p>
+    </div>
+  </div>
+</div>
+
+<!-- User Menu Modal -->
+<div id="modal-user-menu" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-xs mx-4">
+    <div class="p-4 border-b">
+      <p class="font-bold text-gray-800" id="user-menu-name">내 계정</p>
+      <p class="text-xs text-gray-500 mt-0.5" id="user-menu-role"></p>
+    </div>
+    <div class="p-2">
+      <button onclick="closeModal('modal-user-menu');openModal('modal-pin')" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl">🔐 PIN 번호 변경</button>
+      <button onclick="closeModal('modal-user-menu');doLogout()" class="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl font-semibold">🚪 로그아웃</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN Change Modal -->
+<div id="modal-pin" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-xs mx-4">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">PIN 변경</h3>
+      <button onclick="closeModal('modal-pin')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">현재 PIN</label>
+        <input type="password" id="pin-current" maxlength="4" inputmode="numeric" placeholder="● ● ● ●" class="pin-input w-full border rounded-xl p-3">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">새 PIN</label>
+        <input type="password" id="pin-new" maxlength="4" inputmode="numeric" placeholder="● ● ● ●" class="pin-input w-full border rounded-xl p-3">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">새 PIN 확인</label>
+        <input type="password" id="pin-confirm" maxlength="4" inputmode="numeric" placeholder="● ● ● ●" class="pin-input w-full border rounded-xl p-3">
+      </div>
+      <p id="pin-error" class="text-xs text-red-500 hidden text-center"></p>
+    </div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="doChangePIN()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold text-sm">변경</button>
+      <button onclick="closeModal('modal-pin')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold text-sm">취소</button>
+    </div>
+  </div>
+</div>
+
 <!-- Memo Modal -->
 <div id="modal-memo" class="modal">
   <div class="bg-white rounded-2xl w-full max-w-sm mx-4">
@@ -519,6 +598,8 @@ let state = {
   lineups: {},
   birthdays: {},
   memos: {},
+  pins: {},
+  currentUser: null,
   currentGroup: '전체',
   checkViewMode: 'table',
   birthdayViewMode: 'monthly',
@@ -545,6 +626,7 @@ function loadState() {
   if (!state.checks) state.checks = {};
   if (!state.lineups) state.lineups = {};
   if (!state.memos) state.memos = {};
+  if (!state.pins) state.pins = {};
   // migrate lineupService for existing students
   state.students.forEach(s => { if (!s.lineupService) s.lineupService = '1부'; });
 }
@@ -555,7 +637,98 @@ function saveState() {
     checks: state.checks,
     lineups: state.lineups,
     memos: state.memos,
+    pins: state.pins,
+    currentUser: state.currentUser,
   }));
+}
+
+// ==========================================
+// AUTH
+// ==========================================
+function isAdmin() {
+  if (!state.currentUser) return false;
+  const u = state.students.find(s => s.id === state.currentUser);
+  return u && u.group === '팀장';
+}
+
+function getCurrentUser() {
+  return state.students.find(s => s.id === state.currentUser) || null;
+}
+
+function doLogin() {
+  const studentId = document.getElementById('login-name-select').value;
+  const pin = document.getElementById('login-pin').value;
+  const errEl = document.getElementById('login-error');
+  if (!studentId) {
+    errEl.textContent = '이름을 선택해 주세요';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const stored = state.pins[studentId] || '0000';
+  if (pin === stored) {
+    state.currentUser = studentId;
+    saveState();
+    document.getElementById('login-screen').style.display = 'none';
+    errEl.classList.add('hidden');
+    document.getElementById('login-pin').value = '';
+    updateHeaderUser();
+    navigate('dashboard');
+  } else {
+    errEl.textContent = 'PIN 번호가 올바르지 않습니다';
+    errEl.classList.remove('hidden');
+    document.getElementById('login-pin').value = '';
+  }
+}
+
+function doLogout() {
+  state.currentUser = null;
+  saveState();
+  showLoginScreen();
+}
+
+function showLoginScreen() {
+  const sel = document.getElementById('login-name-select');
+  sel.innerHTML = '<option value="">이름을 선택하세요</option>' +
+    [...state.students]
+      .filter(s => s.status !== '군복무' && s.status !== '졸업')
+      .sort((a,b) => {
+        const oi = GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group);
+        return oi !== 0 ? oi : a.name.localeCompare(b.name, 'ko');
+      })
+      .map(s => `<option value="${s.id}">[${s.group}] ${s.name}</option>`)
+      .join('');
+  document.getElementById('login-pin').value = '';
+  document.getElementById('login-error').classList.add('hidden');
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function updateHeaderUser() {
+  const u = getCurrentUser();
+  document.getElementById('header-user-name').textContent = u ? u.name : '';
+}
+
+function showUserMenu() {
+  const u = getCurrentUser();
+  document.getElementById('user-menu-name').textContent = u ? u.name : '';
+  document.getElementById('user-menu-role').textContent = u ? `${u.group}${u.role ? ' · '+u.role : ''}` : '';
+  openModal('modal-user-menu');
+}
+
+function doChangePIN() {
+  const current = document.getElementById('pin-current').value;
+  const newPin = document.getElementById('pin-new').value;
+  const confirm = document.getElementById('pin-confirm').value;
+  const errEl = document.getElementById('pin-error');
+  const stored = state.pins[state.currentUser] || '0000';
+  if (current !== stored) { errEl.textContent = '현재 PIN이 올바르지 않습니다'; errEl.classList.remove('hidden'); return; }
+  if (!/^\d{4}$/.test(newPin)) { errEl.textContent = '새 PIN은 숫자 4자리여야 합니다'; errEl.classList.remove('hidden'); return; }
+  if (newPin !== confirm) { errEl.textContent = '새 PIN이 일치하지 않습니다'; errEl.classList.remove('hidden'); return; }
+  state.pins[state.currentUser] = newPin;
+  saveState();
+  errEl.classList.add('hidden');
+  ['pin-current','pin-new','pin-confirm'].forEach(id => document.getElementById(id).value = '');
+  closeModal('modal-pin');
+  alert('PIN이 변경되었습니다 ✓');
 }
 
 // ==========================================
@@ -885,7 +1058,7 @@ function renderStudents() {
                   </div>
                   <div class="flex flex-col gap-1">
                     ${s.phone ? `<a href="tel:${s.phone}" onclick="event.stopPropagation()" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-center">📞</a>` : ''}
-                    <button onclick="event.stopPropagation();openEditStudent('${s.id}')" class="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-lg">수정</button>
+                    ${isAdmin() ? `<button onclick="event.stopPropagation();openEditStudent('${s.id}')" class="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-lg">수정</button>` : ''}
                   </div>
                 </div>
               </div>
@@ -897,6 +1070,7 @@ function renderStudents() {
   }).join('');
 
   document.getElementById('student-list').innerHTML = html || '<p class="text-center text-gray-400 py-8">학생이 없습니다</p>';
+  document.getElementById('btn-add-student').style.display = isAdmin() ? '' : 'none';
 
   // Update filter buttons
   document.querySelectorAll('.grp-btn').forEach(b=>{
@@ -948,7 +1122,7 @@ function renderDetail(id) {
           </div>
         </div>
         ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
-        <button onclick="openCheckModal('${s.id}',${i})" class="mt-2 text-xs text-purple-600 underline">수정</button>
+        ${isAdmin() ? `<button onclick="openCheckModal('${s.id}',${i})" class="mt-2 text-xs text-purple-600 underline">수정</button>` : ''}
       </div>
     `;
   }).join('');
@@ -978,9 +1152,9 @@ function renderDetail(id) {
         ${s.memo ? `<div class="bg-yellow-50 rounded-xl p-3 text-sm text-gray-700">📝 ${s.memo}</div>` : ''}
       </div>
       <div class="border-t flex">
-        <button onclick="openEditStudent('${s.id}')" class="flex-1 py-3 text-sm text-purple-700 font-semibold border-r">정보 수정</button>
-        ${s.phone ? `<a href="tel:${s.phone}" class="flex-1 py-3 text-sm text-blue-700 font-semibold text-center border-r">📞 전화</a>` : ''}
-        <button onclick="openMemoModal('student_${s.id}')" class="flex-1 py-3 text-sm text-gray-700 font-semibold">📝 메모</button>
+        ${isAdmin() ? `<button onclick="openEditStudent('${s.id}')" class="flex-1 py-3 text-sm text-purple-700 font-semibold border-r">정보 수정</button>` : ''}
+        ${s.phone ? `<a href="tel:${s.phone}" class="flex-1 py-3 text-sm text-blue-700 font-semibold text-center ${isAdmin()?'border-r':''}">📞 전화</a>` : ''}
+        ${isAdmin() ? `<button onclick="openMemoModal('student_${s.id}')" class="flex-1 py-3 text-sm text-gray-700 font-semibold">📝 메모</button>` : ''}
       </div>
     </div>
 
@@ -1065,23 +1239,31 @@ function renderCheckTableView(month, weeks) {
     if(!gs.length) return;
     rows += `<tr><td colspan="${2+weeks.length*4}" class="group-${g} px-3 py-1 text-xs font-bold text-gray-700 border-t-2 border-gray-300">${g} (${gs.length}명)</td></tr>`;
     gs.forEach(s=>{
+      const admin = isAdmin();
       rows += `<tr class="hover:bg-gray-50 group-${g}" style="opacity:0.95">
         <td class="sticky left-0 px-3 py-2 font-semibold text-sm text-gray-800 group-${g} cursor-pointer" onclick="navigate('detail',{currentStudentId:'${s.id}'})">${s.name}</td>
         <td class="px-1 py-2"><span class="badge-${g} text-xs px-1 py-0.5 rounded font-semibold">${g[0]}</span></td>`;
       weeks.forEach((w,i)=>{
         const c = getCheck(s.id, month, i);
+        const isLeader = g === '팀장';
+        const clickQT  = admin ? `onclick="openCheckModal('${s.id}',${i},'qt')"` : '';
+        const clickGate= admin ? `onclick="openCheckModal('${s.id}',${i},'gate')"` : '';
+        const clickSat = admin ? `onclick="openCheckModal('${s.id}',${i},'sat')"` : '';
+        const clickSun = admin ? `onclick="openCheckModal('${s.id}',${i},'sun')"` : '';
         rows += `
           <td class="px-0.5 py-1 border-l border-gray-100">
-            <div class="check-cell qt-${c.qt||'빈칸'}" onclick="openCheckModal('${s.id}',${i},'qt')">${c.qt||'·'}</div>
+            <div class="check-cell qt-${c.qt||'빈칸'}" ${clickQT}>${c.qt||'·'}</div>
           </td>
           <td class="px-0.5 py-1">
-            <div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" onclick="openCheckModal('${s.id}',${i},'gate')">${c.gate||'·'}</div>
+            ${isLeader
+              ? `<div class="check-cell st-빈칸 no-edit text-gray-300">-</div>`
+              : `<div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" ${clickGate}>${c.gate||'·'}</div>`}
           </td>
           <td class="px-0.5 py-1">
-            <div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" onclick="openCheckModal('${s.id}',${i},'sat')">${c.sat||'·'}</div>
+            <div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" ${clickSat}>${c.sat||'·'}</div>
           </td>
           <td class="px-0.5 py-1">
-            <div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" onclick="openCheckModal('${s.id}',${i},'sun')">${c.sun||'·'}</div>
+            <div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" ${clickSun}>${c.sun||'·'}</div>
           </td>`;
       });
       rows += '</tr>';
@@ -1109,20 +1291,22 @@ function renderCheckCards(month, weeks) {
     const gs = students.filter(s=>s.group===g).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     if(!gs.length) return;
     html += `<div class="mb-2"><span class="badge-${g} text-xs font-bold px-3 py-1 rounded-full">${g}</span></div>`;
+    const admin = isAdmin();
     gs.forEach(s=>{
+      const isLeader = s.group === '팀장';
       const weekCards = weeks.map((w,i)=>{
         const c = getCheck(s.id, month, i);
         const l = effectiveLineup(s.id, month, i);
         const lClass = l?`lineup-${l==='가능'?'가능':l==='조건부'?'조건부':'제외'}`:'';
         return `
-          <div class="border border-gray-100 rounded-lg p-2 cursor-pointer hover:bg-gray-50" onclick="openCheckModal('${s.id}',${i})">
+          <div class="border border-gray-100 rounded-lg p-2 ${admin?'cursor-pointer hover:bg-gray-50':''}" ${admin?`onclick="openCheckModal('${s.id}',${i})"`:''}>
             <div class="flex justify-between items-center mb-1">
               <span class="text-xs font-semibold text-gray-600">${w.label}</span>
               ${l?`<span class="text-xs ${lClass} px-1.5 py-0.5 rounded-full">${l}</span>`:''}
             </div>
             <div class="grid grid-cols-4 gap-1 text-center">
               <div><p class="text-xs text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} text-xs px-1 rounded">${c.qt||'·'}</span></div>
-              <div><p class="text-xs text-gray-400">가테</p><span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span></div>
+              <div><p class="text-xs text-gray-400">가테</p>${isLeader?`<span class="st-빈칸 text-xs px-1 rounded text-gray-300">-</span>`:`<span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span>`}</div>
               <div><p class="text-xs text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} text-xs px-1 rounded">${c.sat||'·'}</span></div>
               <div><p class="text-xs text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} text-xs px-1 rounded">${c.sun||'·'}</span></div>
             </div>
@@ -1158,7 +1342,9 @@ function openCheckModal(studentId, weekIdx, focusField) {
   const c = getCheck(studentId, state.month, weekIdx);
   tempCheck = { ...c };
 
+  if (!isAdmin()) return;
   document.getElementById('modal-check-title').textContent = `${s?.name||''} - ${weeks[weekIdx]?.label}`;
+  const isLeader = s?.group === '팀장';
 
   const body = `
     <div class="space-y-4">
@@ -1172,7 +1358,7 @@ function openCheckModal(studentId, weekIdx, focusField) {
             </button>`).join('')}
         </div>
       </div>
-      <div>
+      ${isLeader ? '' : `<div>
         <label class="text-xs font-semibold text-gray-600 block mb-2">가테</label>
         <div class="flex gap-2">
           ${[['O','통과'],['X','미완료'],['','빈칸']].map(([v,l])=>`
@@ -1181,7 +1367,7 @@ function openCheckModal(studentId, weekIdx, focusField) {
               ${l}
             </button>`).join('')}
         </div>
-      </div>
+      </div>`}
       <div>
         <label class="text-xs font-semibold text-gray-600 block mb-2">토요일 출석</label>
         <div class="flex flex-wrap gap-2">
@@ -1402,7 +1588,7 @@ function renderLineupWeeks() {
           <div class="flex flex-col items-end gap-1">
             <span class="text-xs ${lClass} px-2 py-0.5 rounded-full">${eff}</span>
             ${l.auto && l.final && l.auto!==l.final ? `<span class="text-xs text-gray-400">자동: ${l.auto}</span>` : ''}
-            <button onclick="overrideLineup('${s.id}',${i})" class="text-xs text-purple-600 underline">수정</button>
+            ${isAdmin() ? `<button onclick="overrideLineup('${s.id}',${i})" class="text-xs text-purple-600 underline">수정</button>` : ''}
           </div>
         </div>`;
     }).filter(Boolean).join('');
@@ -1520,6 +1706,7 @@ function openEditStudent(id) {
 }
 
 function saveStudent() {
+  if (!isAdmin()) return;
   const id = document.getElementById('edit-student-id').value;
   const name = document.getElementById('inp-name').value.trim();
   if (!name) { alert('이름을 입력하세요'); return; }
@@ -1593,6 +1780,7 @@ function openMemoModal(key) {
 }
 
 function saveMemo() {
+  if (!isAdmin()) return;
   const text = document.getElementById('memo-text').value;
   state.memos[tempMemoKey] = text;
   saveState();
@@ -1756,9 +1944,14 @@ document.getElementById('header-month').textContent = state.month;
 
 // Check if QR attendance
 if (location.search.includes('qr=')) {
+  document.getElementById('login-screen').style.display = 'none';
   checkQRAttendance();
-} else {
+} else if (state.currentUser) {
+  document.getElementById('login-screen').style.display = 'none';
+  updateHeaderUser();
   navigate('dashboard');
+} else {
+  showLoginScreen();
 }
 
 // Service worker for offline (optional - just register without blocking)
