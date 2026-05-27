@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>라디 통합 관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .group-팀장 { background-color: #DBEAFE !important; }
+  .group-솔라디 { background-color: #FEF9C3 !important; }
+  .group-라디스 { background-color: #FFE4D6 !important; }
+  .group-액기스 { background-color: #DCFCE7 !important; }
+  .badge-팀장 { background:#DBEAFE; color:#1e40af; }
+  .badge-솔라디 { background:#FEF9C3; color:#92400e; }
+  .badge-라디스 { background:#FFE4D6; color:#9a3412; }
+  .badge-액기스 { background:#DCFCE7; color:#166534; }
+  .st-O { background:#DBEAFE; color:#1D4ED8; font-weight:600; }
+  .st-X { background:#FEE2E2; color:#DC2626; font-weight:600; }
+  .st-지각 { background:#FEF9C3; color:#B45309; font-weight:600; }
+  .st-결석 { background:#FEE2E2; color:#DC2626; }
+  .st-불가 { background:#F3F4F6; color:#6B7280; }
+  .st-빈칸 { background:#F9FAFB; color:#9CA3AF; }
+  .qt-5,.qt-4 { background:#DBEAFE; color:#1D4ED8; font-weight:600; }
+  .qt-3 { background:#DCFCE7; color:#166534; font-weight:600; }
+  .qt-2,.qt-1 { background:#FEF9C3; color:#B45309; font-weight:600; }
+  .qt-0 { background:#FEE2E2; color:#DC2626; font-weight:600; }
+  .qt-X { background:#F3F4F6; color:#6B7280; }
+  .lineup-가능 { background:#DCFCE7; color:#166534; font-weight:700; }
+  .lineup-조건부 { background:#FEF9C3; color:#B45309; font-weight:700; }
+  .lineup-제외 { background:#FEE2E2; color:#DC2626; font-weight:700; }
+  .lineup-무단 { background:#FEE2E2; color:#7C2D12; font-weight:700; }
+  .lineup-확인필요 { background:#F3E8FF; color:#7C3AED; font-weight:700; }
+  .nav-btn.active { color: #7C3AED; }
+  .nav-btn.active svg { stroke: #7C3AED; }
+  .check-cell { min-width: 48px; text-align: center; padding: 4px 2px; font-size: 12px; border-radius: 4px; cursor: pointer; user-select: none; }
+  .scroll-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table th, table td { white-space: nowrap; }
+  .birthday-today { border: 2px solid #EC4899; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+  .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+  .modal.open { display:flex; }
+  input[type="text"], input[type="date"], select, textarea {
+    border:1px solid #D1D5DB; border-radius:8px; padding:8px 12px;
+    font-size:14px; width:100%; outline:none;
+  }
+  input:focus, select:focus, textarea:focus { border-color:#7C3AED; box-shadow:0 0 0 2px rgba(124,58,237,0.2); }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Header -->
+<header class="bg-purple-700 text-white px-4 py-3 fixed top-0 left-0 right-0 z-50 shadow-md">
+  <div class="flex items-center justify-between max-w-2xl mx-auto">
+    <h1 class="text-lg font-bold">🎵 라디 통합 관리</h1>
+    <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="pt-14 pb-20 max-w-2xl mx-auto" id="main-content">
+
+  <!-- ==================== DASHBOARD ==================== -->
+  <div id="page-dashboard" class="page active p-4 space-y-4">
+    <div id="dashboard-content"></div>
+  </div>
+
+  <!-- ==================== STUDENTS ==================== -->
+  <div id="page-students" class="page p-4">
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <button onclick="filterGroup('전체')" id="grp-전체" class="grp-btn text-xs px-3 py-1 rounded-full bg-purple-100 text-purple-800 font-semibold border border-purple-300">전체</button>
+      <button onclick="filterGroup('팀장')" id="grp-팀장" class="grp-btn text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold border border-blue-300">팀장</button>
+      <button onclick="filterGroup('솔라디')" id="grp-솔라디" class="grp-btn text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-semibold border border-yellow-300">솔라디</button>
+      <button onclick="filterGroup('라디스')" id="grp-라디스" class="grp-btn text-xs px-3 py-1 rounded-full bg-orange-100 text-orange-800 font-semibold border border-orange-300">라디스</button>
+      <button onclick="filterGroup('액기스')" id="grp-액기스" class="grp-btn text-xs px-3 py-1 rounded-full bg-green-100 text-green-800 font-semibold border border-green-300">액기스</button>
+      <button onclick="openAddStudent()" class="ml-auto text-xs px-3 py-1 rounded-full bg-purple-600 text-white font-semibold">+ 추가</button>
+    </div>
+    <div id="student-list"></div>
+  </div>
+
+  <!-- ==================== CHECK TABLE ==================== -->
+  <div id="page-check" class="page p-2">
+    <!-- 월 탭 -->
+    <div class="overflow-x-auto pb-1 mb-3">
+      <div class="flex gap-1.5 px-1 min-w-max">
+        <button onclick="selectCheckMonth('2026-01')" data-cm="2026-01" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">1월</button>
+        <button onclick="selectCheckMonth('2026-02')" data-cm="2026-02" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">2월</button>
+        <button onclick="selectCheckMonth('2026-03')" data-cm="2026-03" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">3월</button>
+        <button onclick="selectCheckMonth('2026-04')" data-cm="2026-04" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">4월</button>
+        <button onclick="selectCheckMonth('2026-05')" data-cm="2026-05" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-purple-600 text-white">5월</button>
+        <button onclick="selectCheckMonth('2026-06')" data-cm="2026-06" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">6월</button>
+        <button onclick="selectCheckMonth('2026-07')" data-cm="2026-07" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">7월</button>
+        <button onclick="selectCheckMonth('2026-08')" data-cm="2026-08" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">8월</button>
+        <button onclick="selectCheckMonth('2026-09')" data-cm="2026-09" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">9월</button>
+        <button onclick="selectCheckMonth('2026-10')" data-cm="2026-10" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">10월</button>
+        <button onclick="selectCheckMonth('2026-11')" data-cm="2026-11" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">11월</button>
+        <button onclick="selectCheckMonth('2026-12')" data-cm="2026-12" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">12월</button>
+      </div>
+    </div>
+    <div class="flex items-center justify-between mb-3 px-2">
+      <h2 class="font-bold text-gray-800" id="check-title">5월 OT 체크표</h2>
+      <div class="flex gap-2">
+        <button onclick="toggleView()" id="view-toggle" class="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-semibold">카드뷰</button>
+        <button onclick="exportCSV()" class="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-semibold">내보내기</button>
+      </div>
+    </div>
+    <div id="check-table-content"></div>
+  </div>
+
+  <!-- ==================== BIRTHDAY ==================== -->
+  <div id="page-birthday" class="page p-4">
+    <div class="flex gap-2 mb-4">
+      <button onclick="birthdayView('monthly')" id="bday-monthly" class="text-xs px-4 py-2 rounded-full bg-pink-600 text-white font-semibold">월별</button>
+      <button onclick="birthdayView('group')" id="bday-group" class="text-xs px-4 py-2 rounded-full bg-gray-200 text-gray-700 font-semibold">분과별</button>
+    </div>
+    <div id="birthday-content"></div>
+  </div>
+
+  <!-- ==================== LINEUP ==================== -->
+  <div id="page-lineup" class="page p-4">
+    <div id="lineup-content"></div>
+  </div>
+
+  <!-- ==================== STUDENT DETAIL ==================== -->
+  <div id="page-detail" class="page p-4">
+    <button onclick="navigate('students')" class="flex items-center gap-1 text-purple-700 mb-4 font-semibold text-sm">
+      ← 목록으로
+    </button>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- ==================== QR ATTENDANCE ==================== -->
+  <div id="page-qr" class="page p-4">
+    <div id="qr-content"></div>
+  </div>
+
+</main>
+
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg">
+  <div class="flex justify-around items-center max-w-2xl mx-auto py-1">
+    <button class="nav-btn active flex flex-col items-center py-1 px-3" onclick="navigate('dashboard')" id="nav-dashboard">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">대시보드</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center py-1 px-3" onclick="navigate('students')" id="nav-students">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">학생</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center py-1 px-3" onclick="navigate('check')" id="nav-check">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">체크표</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center py-1 px-3" onclick="navigate('birthday')" id="nav-birthday">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">생일</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center py-1 px-3" onclick="navigate('lineup')" id="nav-lineup">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">라인업</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Add/Edit Student Modal -->
+<div id="modal-student" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4 max-h-[85vh] overflow-y-auto">
+    <div class="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
+      <h3 class="font-bold text-gray-800" id="modal-student-title">학생 추가</h3>
+      <button onclick="closeModal('modal-student')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <input type="hidden" id="edit-student-id">
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">이름 *</label>
+        <input type="text" id="inp-name" placeholder="이름">
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold mb-1 block">성별</label>
+          <select id="inp-gender"><option>남</option><option>여</option></select>
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold mb-1 block">분과 *</label>
+          <select id="inp-group"><option>팀장</option><option>솔라디</option><option>라디스</option><option>액기스</option></select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">생년월일</label>
+        <input type="date" id="inp-birth">
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold mb-1 block">학년</label>
+          <select id="inp-grade">
+            <option value="">-</option>
+            <option>중1</option><option>중2</option><option>중3</option>
+            <option>고1</option><option>고2</option><option>고3</option>
+            <option>교사</option><option>교역자</option><option>기타</option>
+          </select>
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold mb-1 block">반</label>
+          <input type="text" id="inp-class" placeholder="반">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">학생 전화번호</label>
+        <input type="text" id="inp-phone" placeholder="010-0000-0000">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">보호자 전화번호</label>
+        <input type="text" id="inp-parent-phone" placeholder="010-0000-0000">
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold mb-1 block">악기</label>
+          <input type="text" id="inp-instrument" placeholder="드럼, 건반, 기타...">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold mb-1 block">라인업 예배</label>
+          <select id="inp-lineup-service">
+            <option value="1부">1부</option>
+            <option value="2부">2부</option>
+            <option value="둘다">둘 다</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">담당 교사</label>
+        <input type="text" id="inp-teacher" placeholder="담당 교사">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">현재 상태</label>
+        <select id="inp-status">
+          <option>활동중</option><option>수습</option><option>휴식</option><option>중단</option><option>졸업</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">메모</label>
+        <textarea id="inp-memo" rows="2" placeholder="특이사항"></textarea>
+      </div>
+    </div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="saveStudent()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold">저장</button>
+      <button onclick="closeModal('modal-student')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div id="modal-qr" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">QR 출석 체크</h3>
+      <button onclick="closeModal('modal-qr')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div class="flex gap-2">
+        <button onclick="setQRType('토요일')" id="qr-sat" class="flex-1 py-2 rounded-lg bg-purple-600 text-white font-semibold text-sm">토요일</button>
+        <button onclick="setQRType('주일')" id="qr-sun" class="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold text-sm">주일</button>
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold">시작 시간</label>
+          <input type="time" id="qr-start" value="10:30" class="mt-1">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold">마감 시간</label>
+          <input type="time" id="qr-end" value="11:05" class="mt-1">
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold">지각 기준</label>
+          <input type="time" id="qr-late" value="11:05" class="mt-1">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500 font-semibold">날짜</label>
+          <input type="date" id="qr-date" class="mt-1">
+        </div>
+      </div>
+      <button onclick="generateQR()" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold">QR 생성</button>
+      <div id="qr-output" class="text-center py-2"></div>
+      <p class="text-xs text-gray-500 text-center" id="qr-info"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Check Cell Edit Modal -->
+<div id="modal-check" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800" id="modal-check-title">체크 수정</h3>
+      <button onclick="closeModal('modal-check')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3" id="modal-check-body"></div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="saveCheck()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold">저장</button>
+      <button onclick="closeModal('modal-check')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Month Picker Modal -->
+<div id="modal-month" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-xs mx-4">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">월 선택</h3>
+      <button onclick="closeModal('modal-month')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4" id="month-picker-content"></div>
+  </div>
+</div>
+
+<!-- Memo Modal -->
+<div id="modal-memo" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800" id="modal-memo-title">메모</h3>
+      <button onclick="closeModal('modal-memo')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4">
+      <textarea id="memo-text" rows="5" placeholder="메모를 입력하세요..." class="w-full border rounded-xl p-3 text-sm"></textarea>
+    </div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="saveMemo()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold">저장</button>
+      <button onclick="closeModal('modal-memo')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// INITIAL DATA
+// ==========================================
+const INITIAL_STUDENTS = [
+  // 팀장
+  { id:'t1', name:'황영환', group:'팀장', birthDate:'1989-04-03', gender:'남', grade:'교역자', lineupService:'1부', instrument:'', role:'라디 담당목사', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t2', name:'김희원', group:'팀장', birthDate:'1992-05-29', gender:'여', grade:'교역자', lineupService:'1부', instrument:'건반', role:'팀장장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t3', name:'김예찬', group:'팀장', birthDate:'1996-11-18', gender:'남', grade:'교사', lineupService:'1부', instrument:'베이스', role:'인도자', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t4', name:'정민지', group:'팀장', birthDate:'1998-02-20', gender:'여', grade:'교사', lineupService:'2부', instrument:'건반', role:'팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t5', name:'정여명', group:'팀장', birthDate:'1999-08-14', gender:'여', grade:'교사', lineupService:'2부', instrument:'', role:'워십팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t6', name:'손민수', group:'팀장', birthDate:'', gender:'남', grade:'교사', lineupService:'1부', instrument:'일렉기타', role:'팀장', phone:'', parentPhone:'', teacher:'', status:'군복무', memo:'군복무 중' },
+  // 솔라디 (김기쁨 제외) — 08년생:고3, 09년생:고2, 10년생:고1
+  { id:'s1', name:'김유니스', group:'솔라디', birthDate:'2009-06-01', gender:'여', grade:'고2', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s2', name:'김주하', group:'솔라디', birthDate:'2008-04-29', gender:'남', grade:'고3', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s3', name:'최하은', group:'솔라디', birthDate:'2008-05-07', gender:'여', grade:'고3', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s4', name:'주시은', group:'솔라디', birthDate:'2008-08-23', gender:'여', grade:'고3', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s5', name:'임지민', group:'솔라디', birthDate:'2008-03-18', gender:'여', grade:'고3', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s6', name:'유소연', group:'솔라디', birthDate:'2009-03-18', gender:'여', grade:'고2', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s7', name:'남강현', group:'솔라디', birthDate:'2009-10-02', gender:'남', grade:'고2', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s9', name:'김예원', group:'솔라디', birthDate:'2010-05-06', gender:'여', grade:'고1', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s10', name:'유소영', group:'솔라디', birthDate:'2010-02-03', gender:'여', grade:'고1', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'s11', name:'최하람', group:'솔라디', birthDate:'2010-11-04', gender:'여', grade:'고1', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  // 라디스 (손예서 추가)
+  { id:'r1', name:'이다은', group:'라디스', birthDate:'2008-04-07', gender:'여', grade:'고3', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r2', name:'이하연', group:'라디스', birthDate:'2008-04-13', gender:'여', grade:'고3', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r3', name:'김보미', group:'라디스', birthDate:'2008-05-05', gender:'여', grade:'고3', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r4', name:'조정안', group:'라디스', birthDate:'2008-06-05', gender:'여', grade:'고3', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r5', name:'박가희', group:'라디스', birthDate:'2009-05-04', gender:'여', grade:'고2', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r6', name:'감이현', group:'라디스', birthDate:'2009-10-16', gender:'여', grade:'고2', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r7', name:'김연진', group:'라디스', birthDate:'2009-12-24', gender:'여', grade:'고2', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r8', name:'김효린', group:'라디스', birthDate:'2010-05-24', gender:'여', grade:'고1', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r9', name:'박한솔', group:'라디스', birthDate:'2010-02-11', gender:'여', grade:'고1', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r10', name:'장윤서', group:'라디스', birthDate:'2010-03-22', gender:'여', grade:'고1', lineupService:'2부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'r11', name:'손예서', group:'라디스', birthDate:'', gender:'여', grade:'고1', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  // 액기스 (박하영·장주환 제외, 악기 추가)
+  { id:'a1', name:'김유찬', group:'액기스', birthDate:'2008-05-14', gender:'남', grade:'고3', lineupService:'1부', instrument:'드럼', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'a2', name:'정하연', group:'액기스', birthDate:'2008-11-21', gender:'여', grade:'고3', lineupService:'2부', instrument:'건반', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'a4', name:'방선율', group:'액기스', birthDate:'2009-10-07', gender:'여', grade:'고2', lineupService:'1부', instrument:'일렉기타', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'a5', name:'김시환', group:'액기스', birthDate:'2010-06-11', gender:'남', grade:'고1', lineupService:'2부', instrument:'건반', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'a6', name:'박인혁', group:'액기스', birthDate:'2010-12-24', gender:'남', grade:'고1', lineupService:'1부', instrument:'베이스기타', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'a7', name:'편지우', group:'액기스', birthDate:'2010-01-26', gender:'여', grade:'고1', lineupService:'2부', instrument:'드럼', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'a8', name:'송예주', group:'액기스', birthDate:'2010-03-02', gender:'여', grade:'고1', lineupService:'1부', instrument:'건반', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+];
+
+// 5월 QT 체크 시드 데이터 (이미지에서 입력)
+const SEED_CHECKS = {
+  // 액기스
+  'a5_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a5_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a5_2026-05_w2':{qt:'4',gate:'X',sat:'O',sun:'O',memo:''},
+  'a5_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a1_2026-05_w0':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'a1_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a1_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a1_2026-05_w3':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'a6_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a6_2026-05_w1':{qt:'5',gate:'',sat:'지각',sun:'O',memo:''},
+  'a6_2026-05_w2':{qt:'0',gate:'',sat:'불가',sun:'O',memo:''},
+  'a6_2026-05_w3':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'a4_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a4_2026-05_w1':{qt:'0',gate:'',sat:'결석',sun:'기타',memo:'가족이사'},
+  'a4_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a4_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a8_2026-05_w0':{qt:'2',gate:'',sat:'가족여행',sun:'가족여행',memo:''},
+  'a8_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a8_2026-05_w2':{qt:'4',gate:'X',sat:'O',sun:'O',memo:''},
+  'a8_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a9_2026-05_w3':{qt:'',gate:'X',sat:'',sun:'',memo:''},
+  'a2_2026-05_w0':{qt:'3',gate:'',sat:'결석',sun:'O',memo:''},
+  'a2_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a2_2026-05_w2':{qt:'3',gate:'',sat:'결석',sun:'O',memo:''},
+  'a2_2026-05_w3':{qt:'1',gate:'',sat:'결석',sun:'지각',memo:''},
+  'a7_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'a7_2026-05_w1':{qt:'0',gate:'',sat:'지각',sun:'O',memo:''},
+  'a7_2026-05_w2':{qt:'4',gate:'X',sat:'O',sun:'O',memo:''},
+  'a7_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  // 솔라디
+  's9_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's9_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's9_2026-05_w2':{qt:'1',gate:'',sat:'X',sun:'지각',memo:''},
+  's9_2026-05_w3':{qt:'0',gate:'',sat:'O',sun:'O',memo:''},
+  's1_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's1_2026-05_w1':{qt:'0',gate:'',sat:'O',sun:'O',memo:''},
+  's1_2026-05_w2':{qt:'5',gate:'',sat:'지각',sun:'O',memo:''},
+  's1_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's2_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's2_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's2_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's2_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's7_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's7_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'학교행사',memo:'수학여행'},
+  's7_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's7_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's7_2026-05_w4':{qt:'',gate:'',sat:'O',sun:'',memo:''},
+  's6_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's6_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's6_2026-05_w2':{qt:'3',gate:'',sat:'O',sun:'O',memo:''},
+  's6_2026-05_w3':{qt:'4',gate:'',sat:'결석',sun:'O',memo:''},
+  's10_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's10_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's10_2026-05_w2':{qt:'4',gate:'X',sat:'O',sun:'O',memo:''},
+  's10_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's5_2026-05_w0':{qt:'0',gate:'',sat:'결석',sun:'X',memo:''},
+  's5_2026-05_w1':{qt:'3',gate:'',sat:'결석',sun:'',memo:''},
+  's5_2026-05_w2':{qt:'0',gate:'',sat:'X',sun:'X',memo:''},
+  's5_2026-05_w3':{qt:'0',gate:'',sat:'X',sun:'X',memo:''},
+  's4_2026-05_w0':{qt:'0',gate:'',sat:'결석',sun:'O',memo:''},
+  's4_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's4_2026-05_w2':{qt:'4',gate:'',sat:'지각',sun:'O',memo:''},
+  's4_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's4_2026-05_w4':{qt:'',gate:'',sat:'결석',sun:'',memo:'대회'},
+  's11_2026-05_w0':{qt:'5',gate:'X',sat:'O',sun:'O',memo:''},
+  's11_2026-05_w1':{qt:'4',gate:'',sat:'결석',sun:'O',memo:''},
+  's11_2026-05_w2':{qt:'4',gate:'X',sat:'O',sun:'O',memo:''},
+  's11_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's3_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's3_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's3_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  's3_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  // 라디스
+  'r6_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r6_2026-05_w1':{qt:'2',gate:'',sat:'O',sun:'O',memo:''},
+  'r6_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r6_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r3_2026-05_w0':{qt:'0',gate:'',sat:'결석',sun:'O',memo:''},
+  'r3_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r3_2026-05_w2':{qt:'4',gate:'',sat:'결석',sun:'결석',memo:''},
+  'r3_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'',memo:''},
+  'r7_2026-05_w0':{qt:'4',gate:'',sat:'지각',sun:'지각',memo:'5분 지각'},
+  'r7_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r7_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r7_2026-05_w3':{qt:'4',gate:'',sat:'지각',sun:'O',memo:''},
+  'r8_2026-05_w0':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'r8_2026-05_w1':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'r8_2026-05_w2':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'r8_2026-05_w3':{qt:'5',gate:'',sat:'O',sun:'O',memo:''},
+  'r5_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r5_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r5_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r5_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r9_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r9_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r9_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r9_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r11_2026-05_w2':{qt:'',gate:'',sat:'',sun:'O',memo:''},
+  'r11_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r1_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r1_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r1_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r1_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r2_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r2_2026-05_w1':{qt:'4',gate:'',sat:'결석',sun:'O',memo:'대회'},
+  'r2_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r2_2026-05_w3':{qt:'5',gate:'',sat:'O',sun:'지각',memo:''},
+  'r2_2026-05_w4':{qt:'',gate:'',sat:'결석',sun:'',memo:'대회'},
+  'r10_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r10_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r10_2026-05_w2':{qt:'4',gate:'X',sat:'지각',sun:'O',memo:''},
+  'r10_2026-05_w3':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r4_2026-05_w0':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r4_2026-05_w1':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r4_2026-05_w2':{qt:'4',gate:'',sat:'O',sun:'O',memo:''},
+  'r4_2026-05_w3':{qt:'4',gate:'',sat:'지각',sun:'O',memo:''},
+  // 팀장
+  't2_2026-05_w0':{qt:'',gate:'',sat:'결석',sun:'결석',memo:''},
+};
+
+const GROUP_ORDER = ['팀장','솔라디','라디스','액기스'];
+const WEEKS_LABEL = ['1주차','2주차','3주차','4주차','5주차'];
+const ATTENDANCE_OPTIONS = ['O','지각','결석','불가','가족여행','학교행사','대회','자격증시험','기타'];
+const QT_OPTIONS = ['5','4','3','2','1','0','X',''];
+const GATE_OPTIONS = ['O','X',''];
+
+// ==========================================
+// STATE
+// ==========================================
+let state = {
+  page: 'dashboard',
+  month: '2026-05',
+  students: [],
+  checks: {},
+  lineups: {},
+  birthdays: {},
+  memos: {},
+  currentGroup: '전체',
+  checkViewMode: 'table',
+  birthdayViewMode: 'monthly',
+  currentStudentId: null,
+  qrType: '토요일',
+  editCheckKey: null,
+};
+
+let tempCheck = {};
+let tempMemoKey = null;
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('radi_v4');
+    if (s) {
+      const parsed = JSON.parse(s);
+      Object.assign(state, parsed);
+    }
+  } catch(e) {}
+  if (!state.students || !state.students.length) {
+    state.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
+    state.checks = { ...SEED_CHECKS };
+  }
+  if (!state.checks) state.checks = {};
+  if (!state.lineups) state.lineups = {};
+  if (!state.memos) state.memos = {};
+  // migrate lineupService for existing students
+  state.students.forEach(s => { if (!s.lineupService) s.lineupService = '1부'; });
+}
+
+function saveState() {
+  localStorage.setItem('radi_v4', JSON.stringify({
+    students: state.students,
+    checks: state.checks,
+    lineups: state.lineups,
+    memos: state.memos,
+  }));
+}
+
+// ==========================================
+// UTILITIES
+// ==========================================
+const TODAY = new Date();
+const TODAY_STR = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}-${String(TODAY.getDate()).padStart(2,'0')}`;
+
+function formatBirthDate(bd) {
+  if (!bd) return '';
+  const [y,m,d] = bd.split('-');
+  return `${y}.${m}.${d}`;
+}
+
+function getMonthWeeks(ym) {
+  const [y,m] = ym.split('-').map(Number);
+  const weeks = [];
+  // Find Saturdays
+  let d = new Date(y, m-1, 1);
+  // Find first Saturday
+  while (d.getDay() !== 6) d.setDate(d.getDate()+1);
+  let w = 1;
+  while (d.getMonth() === m-1) {
+    weeks.push({
+      label: `${w}주차`,
+      satDate: `${y}-${String(m).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+      sunDate: (() => { const s = new Date(d); s.setDate(s.getDate()+1); return `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}`; })(),
+    });
+    d.setDate(d.getDate()+7);
+    w++;
+  }
+  return weeks;
+}
+
+function checkKey(studentId, month, weekIdx) {
+  return `${studentId}_${month}_w${weekIdx}`;
+}
+
+function getCheck(studentId, month, weekIdx) {
+  const c = state.checks[checkKey(studentId, month, weekIdx)];
+  const def = { qt:'', gate:'', sat:'', sun:'', lateContacted:false, contactTime:'', arrivalTime:'', qtCopied:false, leaderConfirmed:false, memo:'' };
+  if (!c) return def;
+  const merged = { ...def, ...c };
+  if (merged.gate === '.') merged.gate = 'O';
+  return merged;
+}
+
+function setCheck(studentId, month, weekIdx, data) {
+  state.checks[checkKey(studentId, month, weekIdx)] = data;
+  saveState();
+}
+
+function getLineupStatus(studentId, month, weekIdx) {
+  const key = `${studentId}_${month}_w${weekIdx}`;
+  if (state.lineups[key]) return state.lineups[key];
+  // Auto compute
+  return autoLineup(studentId, month, weekIdx);
+}
+
+function autoLineup(studentId, month, weekIdx) {
+  const c = getCheck(studentId, month, weekIdx);
+  if (c.sun === '결석') return { auto:'제외', final:'', reason:'결석' };
+  if (c.sun === 'O' || c.sun === '') {
+    if (c.sun === 'O') {
+      if (c.qt === '0') return { auto:'확인필요', final:'', reason:'QT 0점' };
+      if (c.gate === 'X') return { auto:'확인필요', final:'', reason:'가테 미완료' };
+      if (c.qt !== '' && c.qt !== 'X') return { auto:'가능', final:'', reason:'' };
+    }
+    if (c.sun === '') return { auto:'', final:'', reason:'' };
+  }
+  if (c.sun === '지각') {
+    if (c.lateContacted) {
+      if (c.qtCopied && c.leaderConfirmed) return { auto:'가능', final:'', reason:'사전 연락 + QT필사 확인' };
+      return { auto:'조건부', final:'', reason:'QT필사 또는 팀장확인 필요' };
+    } else {
+      return { auto:'제외', final:'', reason:'11시 전 연락 없음' };
+    }
+  }
+  if (c.sun === '불가' || c.sun === '가족여행' || c.sun === '학교행사' || c.sun === '대회' || c.sun === '자격증시험' || c.sun === '기타') {
+    return { auto:'제외', final:'', reason: c.sun };
+  }
+  if (c.sun === 'X') return { auto:'제외', final:'', reason:'미출석' };
+  return { auto:'', final:'', reason:'' };
+}
+
+function effectiveLineup(studentId, month, weekIdx) {
+  const l = getLineupStatus(studentId, month, weekIdx);
+  return l.final || l.auto || '';
+}
+
+function getMonthStr(ym) {
+  const [y,m] = ym.split('-');
+  return `${m}월`;
+}
+
+function calcStats(studentId, month) {
+  const weeks = getMonthWeeks(month);
+  let totalSat=0, okSat=0, totalSun=0, okSun=0, totalQt=0, sumQt=0;
+  weeks.forEach((w,i) => {
+    const c = getCheck(studentId, month, i);
+    if (c.sat || c.sun || c.qt !== '') {
+      if (c.sat !== '') { totalSat++; if(c.sat==='O') okSat++; }
+      if (c.sun !== '') { totalSun++; if(c.sun==='O'||c.sun==='지각') okSun++; }
+      if (c.qt !== '' && c.qt !== 'X') { totalQt++; sumQt += parseInt(c.qt)||0; }
+    }
+  });
+  return {
+    satRate: totalSat ? Math.round(okSat/totalSat*100) : null,
+    sunRate: totalSun ? Math.round(okSun/totalSun*100) : null,
+    qtAvg: totalQt ? (sumQt/totalQt).toFixed(1) : null,
+  };
+}
+
+function isBirthdayThisMonth(birthDate, ym) {
+  if (!birthDate) return false;
+  const m = parseInt(ym.split('-')[1]);
+  return parseInt(birthDate.split('-')[1]) === m;
+}
+
+function isToday(birthDate) {
+  if (!birthDate) return false;
+  const [,bm,bd] = birthDate.split('-');
+  return parseInt(bm) === TODAY.getMonth()+1 && parseInt(bd) === TODAY.getDate();
+}
+
+function isBirthdayThisWeek(birthDate) {
+  if (!birthDate) return false;
+  const [,bm,bd] = birthDate.split('-');
+  const bDate = new Date(TODAY.getFullYear(), parseInt(bm)-1, parseInt(bd));
+  const diff = (bDate - TODAY) / 86400000;
+  return diff >= 0 && diff <= 7;
+}
+
+function activeStudents() {
+  return state.students.filter(s => s.status === '활동중');
+}
+
+function monthName(ym) {
+  const [y,m] = ym.split('-');
+  return `${y}년 ${m}월`;
+}
+
+// ==========================================
+// NAVIGATION
+// ==========================================
+function navigate(page, extra) {
+  state.page = page;
+  if (extra) Object.assign(state, extra);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('page-'+page);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const nb = document.getElementById('nav-'+page);
+  if (nb) nb.classList.add('active');
+  // Render
+  if (page==='dashboard') renderDashboard();
+  else if (page==='students') renderStudents();
+  else if (page==='check') { syncCheckTabs(); renderCheckTable(); }
+  else if (page==='birthday') renderBirthday();
+  else if (page==='lineup') renderLineup();
+  else if (page==='detail') renderDetail(state.currentStudentId);
+  window.scrollTo(0,0);
+}
+
+// ==========================================
+// DASHBOARD
+// ==========================================
+function renderDashboard() {
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const students = activeStudents().filter(s=>s.group!=='팀장');
+  const allStudents = activeStudents();
+  const todayBirthdays = allStudents.filter(s=>isToday(s.birthDate));
+  const monthBirthdays = allStudents.filter(s=>isBirthdayThisMonth(s.birthDate, month));
+
+  // This week's stats (last week index with data)
+  const currentWeekIdx = weeks.length - 1;
+  let lineupCan=0, lineupOut=0, lineupCond=0;
+  let qtSubmit=0, gateOk=0, gateMiss=0;
+  students.forEach(s=>{
+    const l = effectiveLineup(s.id, month, currentWeekIdx);
+    if(l==='가능') lineupCan++;
+    else if(l==='제외'||l==='무단') lineupOut++;
+    else if(l==='조건부') lineupCond++;
+    const c = getCheck(s.id, month, currentWeekIdx);
+    if(c.qt && c.qt!=='0' && c.qt!=='X') qtSubmit++;
+    if(c.gate==='O') gateOk++;
+    if(c.gate==='X') gateMiss++;
+  });
+
+  const html = `
+    <div class="space-y-4">
+      ${todayBirthdays.length ? `
+        <div class="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-4 text-white">
+          <p class="text-xs opacity-80 font-semibold mb-1">🎂 오늘의 생일자</p>
+          <p class="text-2xl font-bold">${todayBirthdays.map(s=>s.name).join(', ')}</p>
+          <p class="text-xs opacity-80 mt-1">생일 축하해요! 🎉</p>
+        </div>
+      ` : ''}
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-3">${monthName(month)} 현황</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-purple-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-purple-700">${students.length}</p>
+            <p class="text-xs text-gray-500 mt-1">전체 인원</p>
+          </div>
+          <div class="bg-pink-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-pink-600">${monthBirthdays.length}</p>
+            <p class="text-xs text-gray-500 mt-1">이달의 생일자</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-3">이번 주 라인업 현황 <span class="text-gray-400">(${weeks[currentWeekIdx]?.label||''})</span></p>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="lineup-가능 rounded-xl p-3 text-center">
+            <p class="text-xl font-bold">${lineupCan}</p>
+            <p class="text-xs mt-1">라인업 가능</p>
+          </div>
+          <div class="lineup-조건부 rounded-xl p-3 text-center">
+            <p class="text-xl font-bold">${lineupCond}</p>
+            <p class="text-xs mt-1">조건부</p>
+          </div>
+          <div class="lineup-제외 rounded-xl p-3 text-center">
+            <p class="text-xl font-bold">${lineupOut}</p>
+            <p class="text-xs mt-1">라인업 제외</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-3">이번 주 QT / 가테</p>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-blue-50 rounded-xl p-3 text-center">
+            <p class="text-xl font-bold text-blue-700">${qtSubmit}</p>
+            <p class="text-xs text-gray-500 mt-1">QT 제출</p>
+          </div>
+          <div class="bg-green-50 rounded-xl p-3 text-center">
+            <p class="text-xl font-bold text-green-700">${gateOk}</p>
+            <p class="text-xs text-gray-500 mt-1">가테 완료</p>
+          </div>
+          <div class="bg-red-50 rounded-xl p-3 text-center">
+            <p class="text-xl font-bold text-red-600">${gateMiss}</p>
+            <p class="text-xs text-gray-500 mt-1">가테 미완료</p>
+          </div>
+        </div>
+      </div>
+
+      ${monthBirthdays.length ? `
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+          <p class="text-xs text-gray-500 font-semibold mb-3">🎂 ${getMonthStr(month)} 생일자</p>
+          <div class="space-y-2">
+            ${monthBirthdays.map(s=>{
+              const todayFlag = isToday(s.birthDate) ? ' birthday-today' : '';
+              return `<div class="flex items-center justify-between rounded-xl p-3 ${todayFlag} bg-pink-50">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full badge-${s.group} flex items-center justify-center text-xs font-bold">${s.name[0]}</div>
+                  <div>
+                    <p class="font-semibold text-sm text-gray-800">${s.name} ${isToday(s.birthDate)?'🎂':''}</p>
+                    <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)} · ${s.group}</p>
+                  </div>
+                </div>
+                ${s.phone ? `<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">📞 전화</a>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-3">빠른 메뉴</p>
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="navigate('check')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📋 체크표 작성</button>
+          <button onclick="openQRModal()" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">📱 QR 출석</button>
+          <button onclick="navigate('birthday')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">🎂 생일 관리</button>
+          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업 현황</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('dashboard-content').innerHTML = html;
+}
+
+// ==========================================
+// STUDENTS
+// ==========================================
+function renderStudents() {
+  const group = state.currentGroup || '전체';
+  let filtered = state.students;
+  if (group !== '전체') filtered = filtered.filter(s=>s.group===group);
+
+  const html = GROUP_ORDER.filter(g=> group==='전체'||g===group).map(g=>{
+    const gs = filtered.filter(s=>s.group===g);
+    if(!gs.length) return '';
+    return `
+      <div class="mb-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="badge-${g} text-xs font-bold px-3 py-1 rounded-full">${g}</span>
+          <span class="text-xs text-gray-400">${gs.length}명</span>
+        </div>
+        <div class="space-y-2">
+          ${gs.map(s=>{
+            const stats = calcStats(s.id, state.month);
+            const bdayFlag = isToday(s.birthDate) ? '🎂 ' : '';
+            return `
+              <div class="bg-white rounded-xl p-3 shadow-sm group-${g} border border-transparent hover:border-purple-200 cursor-pointer"
+                   onclick="navigate('detail',{currentStudentId:'${s.id}'})">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 font-bold text-sm flex-shrink-0">${s.name[0]}</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <p class="font-bold text-gray-800 text-sm">${bdayFlag}${s.name}</p>
+                      <span class="text-xs text-gray-500">${s.gender}</span>
+                      ${s.grade ? `<span class="text-xs text-gray-400">${s.grade}</span>` : ''}
+                      ${s.instrument ? `<span class="text-xs bg-purple-50 text-purple-600 px-1.5 rounded-full">${s.instrument}</span>` : ''}
+                      ${s.role ? `<span class="text-xs bg-gray-100 text-gray-600 px-1.5 rounded-full">${s.role}</span>` : ''}
+                      ${s.status==='군복무' ? `<span class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full">🪖군복무</span>` : ''}
+                    </div>
+                    <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)}</p>
+                    ${s.group!=='팀장' ? `<div class="flex gap-2 mt-1">
+                      ${stats.satRate!==null ? `<span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">토 ${stats.satRate}%</span>`:''}
+                      ${stats.sunRate!==null ? `<span class="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">주일 ${stats.sunRate}%</span>`:''}
+                      ${stats.qtAvg!==null ? `<span class="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">QT ${stats.qtAvg}</span>`:''}
+                    </div>` : ''}
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    ${s.phone ? `<a href="tel:${s.phone}" onclick="event.stopPropagation()" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-center">📞</a>` : ''}
+                    <button onclick="event.stopPropagation();openEditStudent('${s.id}')" class="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-lg">수정</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('student-list').innerHTML = html || '<p class="text-center text-gray-400 py-8">학생이 없습니다</p>';
+
+  // Update filter buttons
+  document.querySelectorAll('.grp-btn').forEach(b=>{
+    const g = b.id.replace('grp-','');
+    b.classList.toggle('bg-purple-600', g===group);
+    b.classList.toggle('text-white', g===group);
+  });
+}
+
+function filterGroup(g) {
+  state.currentGroup = g;
+  renderStudents();
+}
+
+// ==========================================
+// STUDENT DETAIL
+// ==========================================
+function renderDetail(id) {
+  const s = state.students.find(x=>x.id===id);
+  if (!s) return;
+  const weeks = getMonthWeeks(state.month);
+
+  let weekRows = weeks.map((w,i)=>{
+    const c = getCheck(s.id, state.month, i);
+    const l = effectiveLineup(s.id, state.month, i);
+    const lClass = l ? `lineup-${l==='가능'?'가능':l==='조건부'?'조건부':l==='무단'?'무단':'제외'}` : '';
+    return `
+      <div class="border-b border-gray-100 py-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-semibold text-sm text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
+          ${l ? `<span class="text-xs px-2 py-0.5 rounded-full ${lClass}">${l}</span>` : ''}
+        </div>
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div>
+            <p class="text-xs text-gray-400 mb-1">QT</p>
+            <span class="text-xs px-2 py-1 rounded-lg qt-${c.qt||'빈칸'}">${c.qt||'-'}</span>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-1">가테</p>
+            <span class="text-xs px-2 py-1 rounded-lg ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}">${c.gate||'-'}</span>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-1">토요일</p>
+            <span class="text-xs px-2 py-1 rounded-lg ${c.sat?`st-${c.sat}`:'st-빈칸'}">${c.sat||'-'}</span>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-1">주일</p>
+            <span class="text-xs px-2 py-1 rounded-lg ${c.sun?`st-${c.sun}`:'st-빈칸'}">${c.sun||'-'}</span>
+          </div>
+        </div>
+        ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
+        <button onclick="openCheckModal('${s.id}',${i})" class="mt-2 text-xs text-purple-600 underline">수정</button>
+      </div>
+    `;
+  }).join('');
+
+  const html = `
+    <div class="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
+      <div class="group-${s.group} p-4 flex items-center gap-4">
+        <div class="w-16 h-16 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 font-bold text-2xl">${s.name[0]}</div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold text-gray-800">${s.name}</h2>
+            <span class="badge-${s.group} text-xs px-2 py-0.5 rounded-full font-semibold">${s.group}</span>
+          </div>
+          <p class="text-sm text-gray-600">${s.gender} · ${s.grade||''} ${s.birthDate ? '· 생일 '+formatBirthDate(s.birthDate):''}</p>
+          <div class="flex flex-wrap gap-1 mt-1">
+            <span class="text-xs ${s.status==='활동중'?'bg-green-100 text-green-700':s.status==='군복무'?'bg-green-200 text-green-800':'bg-gray-100 text-gray-600'} px-2 py-0.5 rounded-full">${s.status==='군복무'?'🪖 군복무':s.status}</span>
+            ${s.role ? `<span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${s.role}</span>` : ''}
+            ${s.instrument ? `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🎸 ${s.instrument}</span>` : ''}
+            ${s.lineupService ? `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">라인업 ${s.lineupService}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="p-4 space-y-3">
+        ${s.phone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">학생 연락처</span><a href="tel:${s.phone}" class="text-sm text-blue-600 font-semibold">${s.phone}</a></div>` : ''}
+        ${s.parentPhone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">보호자 연락처</span><a href="tel:${s.parentPhone}" class="text-sm text-blue-600 font-semibold">${s.parentPhone}</a></div>` : ''}
+        ${s.teacher ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">담당 교사</span><span class="text-sm font-semibold">${s.teacher}</span></div>` : ''}
+        ${s.memo ? `<div class="bg-yellow-50 rounded-xl p-3 text-sm text-gray-700">📝 ${s.memo}</div>` : ''}
+      </div>
+      <div class="border-t flex">
+        <button onclick="openEditStudent('${s.id}')" class="flex-1 py-3 text-sm text-purple-700 font-semibold border-r">정보 수정</button>
+        ${s.phone ? `<a href="tel:${s.phone}" class="flex-1 py-3 text-sm text-blue-700 font-semibold text-center border-r">📞 전화</a>` : ''}
+        <button onclick="openMemoModal('student_${s.id}')" class="flex-1 py-3 text-sm text-gray-700 font-semibold">📝 메모</button>
+      </div>
+    </div>
+
+    ${isToday(s.birthDate) ? `<div class="bg-gradient-to-r from-pink-400 to-purple-500 rounded-2xl p-4 text-white text-center mb-4">🎂 오늘 생일이에요! 생일 축하해요!</div>` : ''}
+
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+      <p class="text-xs text-gray-500 font-semibold mb-1">${monthName(state.month)} 체크 기록</p>
+      ${weekRows}
+    </div>
+  `;
+  document.getElementById('detail-content').innerHTML = html;
+}
+
+// ==========================================
+// CHECK TABLE
+// ==========================================
+let checkTableView = 'table';
+
+function syncCheckTabs() {
+  document.querySelectorAll('.cm-tab').forEach(btn => {
+    const active = btn.dataset.cm === state.month;
+    btn.className = `cm-tab text-xs px-3 py-1.5 rounded-full font-semibold ${active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`;
+  });
+}
+
+function selectCheckMonth(ym) {
+  state.month = ym;
+  document.getElementById('header-month').textContent = ym;
+  // 탭 active 상태 갱신
+  document.querySelectorAll('.cm-tab').forEach(btn => {
+    const active = btn.dataset.cm === ym;
+    btn.className = `cm-tab text-xs px-3 py-1.5 rounded-full font-semibold ${active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`;
+  });
+  renderCheckTable();
+}
+
+function toggleView() {
+  checkTableView = checkTableView==='table'?'card':'table';
+  document.getElementById('view-toggle').textContent = checkTableView==='table'?'카드뷰':'테이블뷰';
+  renderCheckTable();
+}
+
+function renderCheckTable() {
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  document.getElementById('check-title').textContent = `${getMonthStr(month)} OT 체크표`;
+
+  if (checkTableView==='card') {
+    renderCheckCards(month, weeks);
+  } else {
+    renderCheckTableView(month, weeks);
+  }
+}
+
+function renderCheckTableView(month, weeks) {
+  const students = state.students.filter(s=>s.status==='활동중');
+  const groups = ['팀장','솔라디','라디스','액기스'];
+
+  let thead = `<tr class="bg-gray-100">
+    <th class="sticky left-0 bg-gray-100 px-3 py-2 text-left text-xs font-semibold text-gray-600 min-w-16">이름</th>
+    <th class="px-1 py-2 text-xs font-semibold text-gray-500 min-w-8">분과</th>`;
+  weeks.forEach((w,i)=>{
+    thead += `<th colspan="4" class="px-2 py-2 text-xs font-semibold text-purple-700 border-l border-gray-200">${w.label}</th>`;
+  });
+  thead += '</tr>';
+
+  let subhead = `<tr class="bg-gray-50">
+    <th class="sticky left-0 bg-gray-50 px-3 py-1"></th>
+    <th class="px-1 py-1"></th>`;
+  weeks.forEach(w=>{
+    subhead += `
+      <th class="px-1 py-1 text-xs text-blue-600 font-medium border-l border-gray-200">QT</th>
+      <th class="px-1 py-1 text-xs text-green-600 font-medium">가테</th>
+      <th class="px-1 py-1 text-xs text-purple-600 font-medium">토</th>
+      <th class="px-1 py-1 text-xs text-orange-600 font-medium">주일</th>`;
+  });
+  subhead += '</tr>';
+
+  let rows = '';
+  groups.forEach(g=>{
+    const gs = students.filter(s=>s.group===g).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    if(!gs.length) return;
+    rows += `<tr><td colspan="${2+weeks.length*4}" class="group-${g} px-3 py-1 text-xs font-bold text-gray-700 border-t-2 border-gray-300">${g} (${gs.length}명)</td></tr>`;
+    gs.forEach(s=>{
+      rows += `<tr class="hover:bg-gray-50 group-${g}" style="opacity:0.95">
+        <td class="sticky left-0 px-3 py-2 font-semibold text-sm text-gray-800 group-${g} cursor-pointer" onclick="navigate('detail',{currentStudentId:'${s.id}'})">${s.name}</td>
+        <td class="px-1 py-2"><span class="badge-${g} text-xs px-1 py-0.5 rounded font-semibold">${g[0]}</span></td>`;
+      weeks.forEach((w,i)=>{
+        const c = getCheck(s.id, month, i);
+        rows += `
+          <td class="px-0.5 py-1 border-l border-gray-100">
+            <div class="check-cell qt-${c.qt||'빈칸'}" onclick="openCheckModal('${s.id}',${i},'qt')">${c.qt||'·'}</div>
+          </td>
+          <td class="px-0.5 py-1">
+            <div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" onclick="openCheckModal('${s.id}',${i},'gate')">${c.gate||'·'}</div>
+          </td>
+          <td class="px-0.5 py-1">
+            <div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" onclick="openCheckModal('${s.id}',${i},'sat')">${c.sat||'·'}</div>
+          </td>
+          <td class="px-0.5 py-1">
+            <div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" onclick="openCheckModal('${s.id}',${i},'sun')">${c.sun||'·'}</div>
+          </td>`;
+      });
+      rows += '</tr>';
+    });
+  });
+
+  const html = `
+    <div class="scroll-table bg-white rounded-xl shadow-sm">
+      <table class="w-full border-collapse text-xs">
+        <thead>${thead}${subhead}</thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="text-xs text-gray-400 text-center mt-2">셀을 탭하면 수정할 수 있어요</p>
+  `;
+  document.getElementById('check-table-content').innerHTML = html;
+}
+
+function renderCheckCards(month, weeks) {
+  const students = state.students.filter(s=>s.status==='활동중');
+  const groups = ['팀장','솔라디','라디스','액기스'];
+
+  let html = '';
+  groups.forEach(g=>{
+    const gs = students.filter(s=>s.group===g).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    if(!gs.length) return;
+    html += `<div class="mb-2"><span class="badge-${g} text-xs font-bold px-3 py-1 rounded-full">${g}</span></div>`;
+    gs.forEach(s=>{
+      const weekCards = weeks.map((w,i)=>{
+        const c = getCheck(s.id, month, i);
+        const l = effectiveLineup(s.id, month, i);
+        const lClass = l?`lineup-${l==='가능'?'가능':l==='조건부'?'조건부':'제외'}`:'';
+        return `
+          <div class="border border-gray-100 rounded-lg p-2 cursor-pointer hover:bg-gray-50" onclick="openCheckModal('${s.id}',${i})">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xs font-semibold text-gray-600">${w.label}</span>
+              ${l?`<span class="text-xs ${lClass} px-1.5 py-0.5 rounded-full">${l}</span>`:''}
+            </div>
+            <div class="grid grid-cols-4 gap-1 text-center">
+              <div><p class="text-xs text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} text-xs px-1 rounded">${c.qt||'·'}</span></div>
+              <div><p class="text-xs text-gray-400">가테</p><span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span></div>
+              <div><p class="text-xs text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} text-xs px-1 rounded">${c.sat||'·'}</span></div>
+              <div><p class="text-xs text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} text-xs px-1 rounded">${c.sun||'·'}</span></div>
+            </div>
+          </div>`;
+      }).join('');
+      html += `
+        <div class="bg-white rounded-xl p-3 shadow-sm mb-3 group-${g}">
+          <div class="flex items-center gap-2 mb-2 cursor-pointer" onclick="navigate('detail',{currentStudentId:'${s.id}'})">
+            <div class="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 font-bold text-sm">${s.name[0]}</div>
+            <div>
+              <p class="font-bold text-sm text-gray-800">${s.name}</p>
+              <p class="text-xs text-gray-500">${s.group} · ${s.grade||''}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-1">${weekCards}</div>
+        </div>`;
+    });
+  });
+  document.getElementById('check-table-content').innerHTML = html || '<p class="text-center text-gray-400 py-8">데이터 없음</p>';
+}
+
+// ==========================================
+// CHECK MODAL
+// ==========================================
+let currentCheckStudentId = null;
+let currentCheckWeekIdx = null;
+
+function openCheckModal(studentId, weekIdx, focusField) {
+  currentCheckStudentId = studentId;
+  currentCheckWeekIdx = weekIdx;
+  const s = state.students.find(x=>x.id===studentId);
+  const weeks = getMonthWeeks(state.month);
+  const c = getCheck(studentId, state.month, weekIdx);
+  tempCheck = { ...c };
+
+  document.getElementById('modal-check-title').textContent = `${s?.name||''} - ${weeks[weekIdx]?.label}`;
+
+  const body = `
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs font-semibold text-gray-600 block mb-2">QT 점수</label>
+        <div class="flex flex-wrap gap-2">
+          ${QT_OPTIONS.map(v=>`
+            <button onclick="setTempCheck('qt','${v}')" id="qt-opt-${v||'empty'}"
+              class="px-3 py-1.5 rounded-lg text-sm font-semibold border qt-${v||'빈칸'} ${tempCheck.qt===v?'ring-2 ring-purple-500':'opacity-60'}">
+              ${v||'빈칸'}
+            </button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600 block mb-2">가테</label>
+        <div class="flex gap-2">
+          ${[['O','통과'],['X','미완료'],['','빈칸']].map(([v,l])=>`
+            <button onclick="setTempCheck('gate','${v}')"
+              class="flex-1 py-2 rounded-lg text-sm font-semibold ${v==='O'?'st-O':v==='X'?'st-X':'bg-gray-100 text-gray-600'} ${tempCheck.gate===v?'ring-2 ring-purple-500':'opacity-60'}">
+              ${l}
+            </button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600 block mb-2">토요일 출석</label>
+        <div class="flex flex-wrap gap-2">
+          ${ATTENDANCE_OPTIONS.concat(['']).map(v=>`
+            <button onclick="setTempCheck('sat','${v}')"
+              class="px-2 py-1 rounded-lg text-xs font-semibold ${v?`st-${v}`:'bg-gray-100 text-gray-500'} ${tempCheck.sat===v?'ring-2 ring-purple-500':'opacity-60'}">
+              ${v||'빈칸'}
+            </button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600 block mb-2">주일 출석</label>
+        <div class="flex flex-wrap gap-2">
+          ${ATTENDANCE_OPTIONS.concat(['']).map(v=>`
+            <button onclick="setTempCheck('sun','${v}')"
+              class="px-2 py-1 rounded-lg text-xs font-semibold ${v?`st-${v}`:'bg-gray-100 text-gray-500'} ${tempCheck.sun===v?'ring-2 ring-purple-500':'opacity-60'}">
+              ${v||'빈칸'}
+            </button>`).join('')}
+        </div>
+      </div>
+      <div class="bg-gray-50 rounded-xl p-3 space-y-2">
+        <p class="text-xs font-semibold text-gray-600">지각 상세 (주일 지각인 경우)</p>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="late-contacted" ${tempCheck.lateContacted?'checked':''} onchange="tempCheck.lateContacted=this.checked">
+          <span>11시 전 연락함</span>
+        </label>
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="text-xs text-gray-500">연락 시간</label>
+            <input type="time" id="contact-time" value="${tempCheck.contactTime||''}" oninput="tempCheck.contactTime=this.value" class="mt-1">
+          </div>
+          <div class="flex-1">
+            <label class="text-xs text-gray-500">도착 시간</label>
+            <input type="time" id="arrival-time" value="${tempCheck.arrivalTime||''}" oninput="tempCheck.arrivalTime=this.value" class="mt-1">
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="qt-copied" ${tempCheck.qtCopied?'checked':''} onchange="tempCheck.qtCopied=this.checked">
+          <span>토요일 QT 필사 완료</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="leader-confirmed" ${tempCheck.leaderConfirmed?'checked':''} onchange="tempCheck.leaderConfirmed=this.checked">
+          <span>팀장 확인 완료</span>
+        </label>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600 block mb-1">메모</label>
+        <textarea id="check-memo" rows="2" placeholder="메모..." oninput="tempCheck.memo=this.value">${tempCheck.memo||''}</textarea>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-check-body').innerHTML = body;
+  openModal('modal-check');
+}
+
+function setTempCheck(field, value) {
+  tempCheck[field] = value;
+  // Rerender buttons
+  if (field === 'qt') {
+    QT_OPTIONS.forEach(v=>{
+      const btn = document.getElementById(`qt-opt-${v||'empty'}`);
+      if(btn) btn.classList.toggle('ring-2', v===value);
+      if(btn) btn.classList.toggle('ring-purple-500', v===value);
+      if(btn) btn.classList.toggle('opacity-60', v!==value);
+    });
+  }
+  // Re-render for other fields (simpler approach)
+}
+
+function saveCheck() {
+  tempCheck.lateContacted = document.getElementById('late-contacted')?.checked || false;
+  tempCheck.contactTime = document.getElementById('contact-time')?.value || '';
+  tempCheck.arrivalTime = document.getElementById('arrival-time')?.value || '';
+  tempCheck.qtCopied = document.getElementById('qt-copied')?.checked || false;
+  tempCheck.leaderConfirmed = document.getElementById('leader-confirmed')?.checked || false;
+  tempCheck.memo = document.getElementById('check-memo')?.value || '';
+
+  setCheck(currentCheckStudentId, state.month, currentCheckWeekIdx, {...tempCheck});
+  closeModal('modal-check');
+
+  if (state.page==='check') renderCheckTable();
+  else if (state.page==='detail') renderDetail(state.currentStudentId);
+  else if (state.page==='lineup') renderLineup();
+}
+
+// ==========================================
+// BIRTHDAY
+// ==========================================
+function birthdayView(mode) {
+  state.birthdayViewMode = mode;
+  document.getElementById('bday-monthly').className = `text-xs px-4 py-2 rounded-full font-semibold ${mode==='monthly'?'bg-pink-600 text-white':'bg-gray-200 text-gray-700'}`;
+  document.getElementById('bday-group').className = `text-xs px-4 py-2 rounded-full font-semibold ${mode==='group'?'bg-pink-600 text-white':'bg-gray-200 text-gray-700'}`;
+  renderBirthday();
+}
+
+function renderBirthday() {
+  const mode = state.birthdayViewMode || 'monthly';
+  const students = activeStudents(); // 팀장 포함 전체
+
+  if (mode==='monthly') {
+    let html = '';
+    for (let m=1; m<=12; m++) {
+      const ms = students.filter(s=>s.birthDate && parseInt(s.birthDate.split('-')[1])===m)
+        .sort((a,b)=>parseInt(a.birthDate.split('-')[2])-parseInt(b.birthDate.split('-')[2]));
+      const isCurrentMonth = m === TODAY.getMonth()+1;
+      html += `
+        <div class="mb-4">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="font-bold text-gray-800 ${isCurrentMonth?'text-pink-600':''}">${m}월</h3>
+            ${isCurrentMonth?'<span class="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-semibold">이번 달</span>':''}
+            <span class="text-xs text-gray-400">${ms.length}명</span>
+          </div>
+          ${ms.length ? `<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            ${ms.map(s=>{
+              const todayFlag = isToday(s.birthDate);
+              const weekFlag = isBirthdayThisWeek(s.birthDate);
+              return `
+                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0 ${todayFlag?'bg-pink-50 birthday-today':weekFlag?'bg-yellow-50':''}">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full badge-${s.group} flex items-center justify-center font-bold text-sm">${s.name[0]}</div>
+                    <div>
+                      <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}</p>
+                      <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)} · <span class="badge-${s.group} px-1 rounded text-xs">${s.group}</span></p>
+                    </div>
+                  </div>
+                  ${s.phone?`<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞 전화</a>`:''}
+                </div>`;
+            }).join('')}
+          </div>` : '<p class="text-xs text-gray-400 py-2 pl-2">해당 없음</p>'}
+        </div>`;
+    }
+    document.getElementById('birthday-content').innerHTML = html;
+  } else {
+    let html = '';
+    GROUP_ORDER.forEach(g=>{
+      const gs = students.filter(s=>s.group===g && s.birthDate).sort((a,b)=>a.birthDate.localeCompare(b.birthDate));
+      if (!gs.length) return;
+      html += `
+        <div class="mb-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="badge-${g} text-xs font-bold px-3 py-1 rounded-full">${g}</span>
+            <span class="text-xs text-gray-400">${gs.length}명</span>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            ${gs.map(s=>{
+              const todayFlag = isToday(s.birthDate);
+              return `
+                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0 group-${g} ${todayFlag?'birthday-today':''}">
+                  <div>
+                    <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}</p>
+                    <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)}</p>
+                  </div>
+                  ${s.phone?`<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞</a>`:''}
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    });
+    document.getElementById('birthday-content').innerHTML = html;
+  }
+}
+
+// ==========================================
+// LINEUP
+// ==========================================
+let lineupService = '1부';
+
+function switchLineupService(svc) {
+  lineupService = svc;
+  document.getElementById('lineup-tab-1').className = `flex-1 py-2 rounded-xl text-sm font-bold ${svc==='1부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}`;
+  document.getElementById('lineup-tab-2').className = `flex-1 py-2 rounded-xl text-sm font-bold ${svc==='2부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}`;
+  renderLineupWeeks();
+}
+
+function renderLineup() {
+  const month = state.month;
+  let html = `
+    <h2 class="font-bold text-gray-800 mb-3">${monthName(month)} 라인업 현황</h2>
+    <div class="flex gap-2 mb-4">
+      <button id="lineup-tab-1" onclick="switchLineupService('1부')"
+        class="flex-1 py-2 rounded-xl text-sm font-bold ${lineupService==='1부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}">1부 예배</button>
+      <button id="lineup-tab-2" onclick="switchLineupService('2부')"
+        class="flex-1 py-2 rounded-xl text-sm font-bold ${lineupService==='2부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}">2부 예배</button>
+    </div>
+    <div id="lineup-weeks"></div>
+  `;
+  document.getElementById('lineup-content').innerHTML = html;
+  renderLineupWeeks();
+}
+
+function renderLineupWeeks() {
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const students = activeStudents().filter(s => s.lineupService === lineupService || s.lineupService === '둘다');
+
+  let html = '<div class="space-y-4">';
+
+  weeks.forEach((w,i)=>{
+    let canCount=0, condCount=0, outCount=0;
+    const rows = students.map(s=>{
+      const l = getLineupStatus(s.id, month, i);
+      const eff = l.final || l.auto || '';
+      if(eff==='가능') canCount++;
+      else if(eff==='조건부') condCount++;
+      else if(eff==='제외'||eff==='무단') outCount++;
+      if(!eff) return '';
+      const lClass = eff==='가능'?'lineup-가능':eff==='조건부'?'lineup-조건부':eff==='무단'?'lineup-무단':'lineup-제외';
+      return `
+        <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full badge-${s.group} flex items-center justify-center text-xs font-bold">${s.name[0]}</div>
+            <div>
+              <p class="font-semibold text-sm text-gray-800">${s.name}</p>
+              <p class="text-xs text-gray-500">${s.group}${l.reason?` · ${l.reason}`:''}</p>
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-1">
+            <span class="text-xs ${lClass} px-2 py-0.5 rounded-full">${eff}</span>
+            ${l.auto && l.final && l.auto!==l.final ? `<span class="text-xs text-gray-400">자동: ${l.auto}</span>` : ''}
+            <button onclick="overrideLineup('${s.id}',${i})" class="text-xs text-purple-600 underline">수정</button>
+          </div>
+        </div>`;
+    }).filter(Boolean).join('');
+
+    if(!rows) return;
+
+    html += `
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></h3>
+          <div class="flex gap-1 text-xs">
+            <span class="lineup-가능 px-2 py-0.5 rounded-full">${canCount}</span>
+            <span class="lineup-조건부 px-2 py-0.5 rounded-full">${condCount}</span>
+            <span class="lineup-제외 px-2 py-0.5 rounded-full">${outCount}</span>
+          </div>
+        </div>
+        ${rows || '<p class="text-xs text-gray-400">체크 데이터 없음</p>'}
+      </div>`;
+  });
+
+  html += '</div>';
+  document.getElementById('lineup-weeks').innerHTML = html;
+}
+
+function overrideLineup(studentId, weekIdx) {
+  const key = `${studentId}_${state.month}_w${weekIdx}`;
+  const current = state.lineups[key] || autoLineup(studentId, state.month, weekIdx);
+  const options = ['가능','조건부','제외','무단','확인필요',''];
+  const choice = prompt(`라인업 상태 변경\n현재: ${current.final||current.auto||'미정'}\n\n선택: ${options.filter(Boolean).join(' / ')}`);
+  if (choice !== null) {
+    state.lineups[key] = { ...current, final: choice };
+    saveState();
+    renderLineupWeeks();
+  }
+}
+
+// ==========================================
+// QR MODAL
+// ==========================================
+let qrType = '토요일';
+
+function openQRModal() {
+  const today = new Date();
+  document.getElementById('qr-date').value = TODAY_STR;
+  openModal('modal-qr');
+}
+
+function setQRType(type) {
+  qrType = type;
+  document.getElementById('qr-sat').className = `flex-1 py-2 rounded-lg text-sm font-semibold ${type==='토요일'?'bg-purple-600 text-white':'bg-gray-200 text-gray-700'}`;
+  document.getElementById('qr-sun').className = `flex-1 py-2 rounded-lg text-sm font-semibold ${type==='주일'?'bg-purple-600 text-white':'bg-gray-200 text-gray-700'}`;
+}
+
+function generateQR() {
+  const date = document.getElementById('qr-date').value;
+  const start = document.getElementById('qr-start').value;
+  const end = document.getElementById('qr-end').value;
+  const late = document.getElementById('qr-late').value;
+  const token = btoa(JSON.stringify({ type:qrType, date, start, end, late, ts: Date.now() }));
+  const url = `${location.origin}${location.pathname}?qr=${token}`;
+
+  const output = document.getElementById('qr-output');
+  output.innerHTML = '<canvas id="qr-canvas"></canvas>';
+
+  if (typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(document.getElementById('qr-canvas'), url, { width: 200, margin: 2 }, (err)=>{
+      if(err) output.innerHTML = `<p class="text-xs text-gray-500 break-all">${url}</p>`;
+    });
+  } else {
+    output.innerHTML = `<p class="text-xs text-blue-600 break-all underline">${url}</p>`;
+  }
+
+  document.getElementById('qr-info').textContent = `${qrType} ${date} | ${start}~${end} | 지각: ${late} 이후`;
+}
+
+// ==========================================
+// STUDENT MODAL
+// ==========================================
+function openAddStudent() {
+  document.getElementById('modal-student-title').textContent = '학생 추가';
+  document.getElementById('edit-student-id').value = '';
+  ['name','phone','parent-phone','teacher','memo','instrument'].forEach(f=>{
+    const el = document.getElementById('inp-'+f);
+    if(el) el.value = '';
+  });
+  document.getElementById('inp-birth').value = '';
+  document.getElementById('inp-gender').value = '여';
+  document.getElementById('inp-group').value = '솔라디';
+  document.getElementById('inp-grade').value = '';
+  document.getElementById('inp-class').value = '';
+  document.getElementById('inp-status').value = '활동중';
+  document.getElementById('inp-lineup-service').value = '1부';
+  openModal('modal-student');
+}
+
+function openEditStudent(id) {
+  const s = state.students.find(x=>x.id===id);
+  if (!s) return;
+  document.getElementById('modal-student-title').textContent = '학생 수정';
+  document.getElementById('edit-student-id').value = id;
+  document.getElementById('inp-name').value = s.name;
+  document.getElementById('inp-gender').value = s.gender;
+  document.getElementById('inp-group').value = s.group;
+  document.getElementById('inp-birth').value = s.birthDate||'';
+  document.getElementById('inp-grade').value = s.grade||'';
+  document.getElementById('inp-class').value = s.className||'';
+  document.getElementById('inp-phone').value = s.phone||'';
+  document.getElementById('inp-parent-phone').value = s.parentPhone||'';
+  document.getElementById('inp-teacher').value = s.teacher||'';
+  document.getElementById('inp-status').value = s.status||'활동중';
+  document.getElementById('inp-memo').value = s.memo||'';
+  document.getElementById('inp-instrument').value = s.instrument||'';
+  document.getElementById('inp-lineup-service').value = s.lineupService||'1부';
+  openModal('modal-student');
+}
+
+function saveStudent() {
+  const id = document.getElementById('edit-student-id').value;
+  const name = document.getElementById('inp-name').value.trim();
+  if (!name) { alert('이름을 입력하세요'); return; }
+
+  const data = {
+    name,
+    gender: document.getElementById('inp-gender').value,
+    group: document.getElementById('inp-group').value,
+    birthDate: document.getElementById('inp-birth').value,
+    grade: document.getElementById('inp-grade').value,
+    className: document.getElementById('inp-class').value,
+    phone: document.getElementById('inp-phone').value,
+    parentPhone: document.getElementById('inp-parent-phone').value,
+    teacher: document.getElementById('inp-teacher').value,
+    status: document.getElementById('inp-status').value,
+    memo: document.getElementById('inp-memo').value,
+    instrument: document.getElementById('inp-instrument').value,
+    lineupService: document.getElementById('inp-lineup-service').value,
+  };
+
+  if (id) {
+    const idx = state.students.findIndex(x=>x.id===id);
+    if (idx>=0) state.students[idx] = { ...state.students[idx], ...data };
+  } else {
+    const newId = 'u'+Date.now();
+    state.students.push({ id:newId, ...data });
+  }
+
+  saveState();
+  closeModal('modal-student');
+  if (state.page==='students') renderStudents();
+  else if (state.page==='detail') renderDetail(id);
+}
+
+// ==========================================
+// MONTH PICKER
+// ==========================================
+function showMonthPicker() {
+  const months = [];
+  for (let m=1; m<=12; m++) months.push(`2026-${String(m).padStart(2,'0')}`);
+
+  const html = `
+    <div class="grid grid-cols-3 gap-2">
+      ${months.map(ym=>{
+        const [y,m] = ym.split('-');
+        return `<button onclick="selectMonth('${ym}')" class="py-3 rounded-xl text-sm font-semibold ${ym===state.month?'bg-purple-600 text-white':'bg-gray-100 text-gray-700'}">${m}월</button>`;
+      }).join('')}
+    </div>`;
+  document.getElementById('month-picker-content').innerHTML = html;
+  openModal('modal-month');
+}
+
+function selectMonth(ym) {
+  state.month = ym;
+  document.getElementById('header-month').textContent = ym;
+  closeModal('modal-month');
+  if (state.page==='check') renderCheckTable();
+  else if (state.page==='lineup') renderLineup();
+  else if (state.page==='dashboard') renderDashboard();
+  else if (state.page==='birthday') renderBirthday();
+}
+
+// ==========================================
+// MEMO
+// ==========================================
+function openMemoModal(key) {
+  tempMemoKey = key;
+  document.getElementById('modal-memo-title').textContent = '메모';
+  document.getElementById('memo-text').value = state.memos[key]||'';
+  openModal('modal-memo');
+}
+
+function saveMemo() {
+  const text = document.getElementById('memo-text').value;
+  state.memos[tempMemoKey] = text;
+  saveState();
+  closeModal('modal-memo');
+  if (state.page==='detail') renderDetail(state.currentStudentId);
+}
+
+// ==========================================
+// MODAL HELPERS
+// ==========================================
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// Close modal on backdrop click
+document.querySelectorAll('.modal').forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
+});
+
+// ==========================================
+// EXPORT CSV
+// ==========================================
+function exportCSV() {
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const students = state.students.filter(s=>s.status==='활동중'&&s.group!=='팀장');
+
+  let csv = '분과,이름';
+  weeks.forEach(w=>{
+    csv += `,${w.label}_QT,${w.label}_가테,${w.label}_토요일,${w.label}_주일`;
+  });
+  csv += '\n';
+
+  students.forEach(s=>{
+    csv += `${s.group},${s.name}`;
+    weeks.forEach((w,i)=>{
+      const c = getCheck(s.id, month, i);
+      csv += `,${c.qt||''},${c.gate||''},${c.sat||''},${c.sun||''}`;
+    });
+    csv += '\n';
+  });
+
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `라디_${month}_체크표.csv`;
+  a.click();
+}
+
+// ==========================================
+// QR ATTENDANCE CHECK (when URL has ?qr=)
+// ==========================================
+function checkQRAttendance() {
+  const params = new URLSearchParams(location.search);
+  const qr = params.get('qr');
+  if (!qr) return;
+
+  try {
+    const data = JSON.parse(atob(qr));
+    const now = new Date();
+    const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const nowDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+    if (data.date !== nowDate) {
+      showQRResult('error', '이 QR코드는 오늘 날짜에 사용할 수 없습니다.');
+      return;
+    }
+    if (nowTime > data.end) {
+      showQRResult('error', `출석 체크 시간이 종료되었습니다. (마감: ${data.end})`);
+      return;
+    }
+
+    const isLate = nowTime > data.late;
+    showQRAttendanceForm(data, isLate, nowTime);
+  } catch(e) {
+    showQRResult('error', 'QR코드를 읽을 수 없습니다.');
+  }
+}
+
+function showQRAttendanceForm(data, isLate, time) {
+  document.querySelector('nav').style.display = 'none';
+  document.querySelector('header').style.display = 'none';
+  document.getElementById('main-content').className = 'p-4 max-w-sm mx-auto';
+
+  const body = document.getElementById('page-dashboard');
+  body.innerHTML = `
+    <div class="space-y-4 mt-8">
+      <div class="text-center">
+        <div class="text-4xl mb-2">📱</div>
+        <h1 class="text-2xl font-bold text-purple-700">라디 출석 체크</h1>
+        <p class="text-gray-500 text-sm mt-1">${data.type} · ${data.date}</p>
+        ${isLate ? '<div class="bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-2 rounded-xl mt-2">⚠️ 지각 처리됩니다</div>' : '<div class="bg-green-100 text-green-800 text-sm font-semibold px-4 py-2 rounded-xl mt-2">✓ 정상 출석 시간</div>'}
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <label class="text-sm font-semibold text-gray-700 block mb-2">본인 이름 선택</label>
+        <select id="qr-student-select" class="w-full border rounded-xl p-3 text-sm">
+          <option value="">이름을 선택하세요</option>
+          ${activeStudents().filter(s=>s.group!=='팀장').map(s=>`<option value="${s.id}">${s.group} | ${s.name}</option>`).join('')}
+        </select>
+      </div>
+      <button onclick="submitQRAttendance('${JSON.stringify(data).replace(/'/g,"\\'")}', ${isLate}, '${time}')"
+        class="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold text-lg">
+        출석 체크 완료
+      </button>
+    </div>
+  `;
+
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  body.classList.add('active');
+}
+
+function submitQRAttendance(dataStr, isLate, time) {
+  const data = JSON.parse(dataStr);
+  const studentId = document.getElementById('qr-student-select')?.value;
+  if (!studentId) { alert('이름을 선택하세요'); return; }
+
+  // Find week index
+  const ym = data.date.slice(0,7);
+  const weeks = getMonthWeeks(ym);
+  const weekIdx = weeks.findIndex(w=>w.satDate===data.date||w.sunDate===data.date);
+  if (weekIdx<0) { alert('날짜를 찾을 수 없습니다'); return; }
+
+  const field = data.type==='토요일'?'sat':'sun';
+  const c = getCheck(studentId, ym, weekIdx);
+  c[field] = isLate ? '지각' : 'O';
+  if (isLate && data.type==='주일') {
+    c.arrivalTime = time;
+  }
+  setCheck(studentId, ym, weekIdx, c);
+
+  const s = state.students.find(x=>x.id===studentId);
+  showQRResult('success', `${s?.name}님 ${data.type} 출석 완료! ${isLate?'(지각)':''}\n체크 시간: ${time}`);
+}
+
+function showQRResult(type, msg) {
+  document.querySelector('nav').style.display = 'none';
+  document.querySelector('header').style.display = 'none';
+  document.getElementById('main-content').className = 'p-4 max-w-sm mx-auto flex items-center justify-center min-h-screen';
+
+  const body = document.getElementById('page-dashboard');
+  body.innerHTML = `
+    <div class="text-center space-y-4">
+      <div class="text-6xl">${type==='success'?'✅':'❌'}</div>
+      <p class="text-lg font-bold ${type==='success'?'text-green-700':'text-red-700'}">${msg.replace(/\n/g,'<br>')}</p>
+      <button onclick="location.href=location.pathname" class="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold">메인으로</button>
+    </div>
+  `;
+  body.classList.add('active');
+}
+
+// ==========================================
+// INIT
+// ==========================================
+loadState();
+state.month = state.month || '2026-05';
+document.getElementById('header-month').textContent = state.month;
+
+// Check if QR attendance
+if (location.search.includes('qr=')) {
+  checkQRAttendance();
+} else {
+  navigate('dashboard');
+}
+
+// Service worker for offline (optional - just register without blocking)
+if ('serviceWorker' in navigator) {
+  // navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
