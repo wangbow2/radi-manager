@@ -170,7 +170,7 @@
     </button>
     <button class="nav-btn flex flex-col items-center py-1 px-2" onclick="navigate('qt')" id="nav-qt">
       <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      <span class="text-xs mt-0.5 font-medium text-gray-500">QT제출</span>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">큐티</span>
     </button>
     <button class="nav-btn flex flex-col items-center py-1 px-2" onclick="navigate('birthday')" id="nav-birthday">
       <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
@@ -428,11 +428,11 @@
 // ==========================================
 const INITIAL_STUDENTS = [
   // 팀장
-  { id:'t1', name:'황영환', group:'팀장', birthDate:'1989-04-03', gender:'남', grade:'교역자', lineupService:'1부', instrument:'', role:'라디 담당목사', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t1', name:'황영환', group:'팀장', birthDate:'1989-04-03', gender:'남', grade:'교역자', lineupService:'1부', instrument:'', role:'목사', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t2', name:'김희원', group:'팀장', birthDate:'1992-05-29', gender:'여', grade:'교역자', lineupService:'1부', instrument:'건반', role:'팀장장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t3', name:'김예찬', group:'팀장', birthDate:'1996-11-18', gender:'남', grade:'교사', lineupService:'1부', instrument:'베이스', role:'인도자', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t4', name:'정민지', group:'팀장', birthDate:'1998-02-20', gender:'여', grade:'교사', lineupService:'2부', instrument:'건반', role:'팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
-  { id:'t5', name:'정여명', group:'팀장', birthDate:'1999-08-14', gender:'여', grade:'교사', lineupService:'2부', instrument:'', role:'워십팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
+  { id:'t5', name:'정여명', group:'팀장', birthDate:'1999-08-14', gender:'여', grade:'교사', lineupService:'2부', instrument:'', role:'워십 / 팀장', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
   { id:'t6', name:'손민수', group:'팀장', birthDate:'', gender:'남', grade:'교사', lineupService:'1부', instrument:'일렉기타', role:'팀장', phone:'', parentPhone:'', teacher:'', status:'군복무', memo:'군복무 중' },
   // 솔라디 (김기쁨 제외) — 08년생:고3, 09년생:고2, 10년생:고1
   { id:'s1', name:'김유니스', group:'솔라디', birthDate:'2009-06-01', gender:'여', grade:'고2', lineupService:'1부', phone:'', parentPhone:'', teacher:'', status:'활동중', memo:'' },
@@ -622,6 +622,8 @@ let state = {
   memos: {},
   pins: {},
   currentUser: null,
+  qtPosts: [],
+  qtComments: [],
   currentGroup: '전체',
   checkViewMode: 'table',
   birthdayViewMode: 'monthly',
@@ -649,8 +651,23 @@ function loadState() {
   if (!state.lineups) state.lineups = {};
   if (!state.memos) state.memos = {};
   if (!state.pins) state.pins = {};
+  if (!state.qtPosts) state.qtPosts = [];
+  if (!state.qtComments) state.qtComments = [];
   // migrate lineupService for existing students
   state.students.forEach(s => { if (!s.lineupService) s.lineupService = '1부'; });
+  // migrate student roles
+  if (!state._roleMigrated) {
+    const roleFixes = { t1: { role: '목사' }, t5: { role: '워십 / 팀장' } };
+    state.students.forEach(s => { if (roleFixes[s.id]) Object.assign(s, roleFixes[s.id]); });
+    state._roleMigrated = true;
+  }
+  // gate '.' and '' → 'O' for weeks with existing data
+  if (!state._gateMigrated) {
+    Object.values(state.checks).forEach(c => {
+      if ((c.gate === '' || c.gate === '.') && (c.qt !== '' || c.sat !== '' || c.sun !== '')) c.gate = 'O';
+    });
+    state._gateMigrated = true;
+  }
 }
 
 function saveState() {
@@ -661,6 +678,10 @@ function saveState() {
     memos: state.memos,
     pins: state.pins,
     currentUser: state.currentUser,
+    qtPosts: state.qtPosts,
+    qtComments: state.qtComments,
+    _gateMigrated: state._gateMigrated,
+    _roleMigrated: state._roleMigrated,
   }));
 }
 
@@ -967,26 +988,11 @@ function navigate(page, extra) {
 // ==========================================
 function renderDashboard() {
   const month = state.month;
-  const weeks = getMonthWeeks(month);
-  const students = activeStudents().filter(s=>s.group!=='팀장');
   const allStudents = activeStudents();
+  const totalMembers = allStudents.filter(s=>s.group!=='팀장').length;
   const todayBirthdays = allStudents.filter(s=>isToday(s.birthDate));
-  const monthBirthdays = allStudents.filter(s=>isBirthdayThisMonth(s.birthDate, month));
-
-  // This week's stats (last week index with data)
-  const currentWeekIdx = weeks.length - 1;
-  let lineupCan=0, lineupOut=0, lineupCond=0;
-  let qtSubmit=0, gateOk=0, gateMiss=0;
-  students.forEach(s=>{
-    const l = effectiveLineup(s.id, month, currentWeekIdx);
-    if(l==='가능') lineupCan++;
-    else if(l==='제외'||l==='무단') lineupOut++;
-    else if(l==='조건부') lineupCond++;
-    const c = getCheck(s.id, month, currentWeekIdx);
-    if(c.qt && c.qt!=='0' && c.qt!=='X') qtSubmit++;
-    if(c.gate==='O') gateOk++;
-    if(c.gate==='X') gateMiss++;
-  });
+  const monthBirthdays = allStudents.filter(s=>isBirthdayThisMonth(s.birthDate, month))
+    .sort((a,b)=>parseInt(a.birthDate.split('-')[2])-parseInt(b.birthDate.split('-')[2]));
 
   const html = `
     <div class="space-y-4">
@@ -995,55 +1001,17 @@ function renderDashboard() {
           <p class="text-xs opacity-80 font-semibold mb-1">🎂 오늘의 생일자</p>
           <p class="text-2xl font-bold">${todayBirthdays.map(s=>s.name).join(', ')}</p>
           <p class="text-xs opacity-80 mt-1">생일 축하해요! 🎉</p>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
       <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-3">${monthName(month)} 현황</p>
         <div class="grid grid-cols-2 gap-3">
           <div class="bg-purple-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-purple-700">${students.length}</p>
+            <p class="text-2xl font-bold text-purple-700">${totalMembers}</p>
             <p class="text-xs text-gray-500 mt-1">전체 인원</p>
           </div>
           <div class="bg-pink-50 rounded-xl p-3 text-center">
             <p class="text-2xl font-bold text-pink-600">${monthBirthdays.length}</p>
-            <p class="text-xs text-gray-500 mt-1">이달의 생일자</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-3">이번 주 라인업 현황 <span class="text-gray-400">(${weeks[currentWeekIdx]?.label||''})</span></p>
-        <div class="grid grid-cols-3 gap-2">
-          <div class="lineup-가능 rounded-xl p-3 text-center">
-            <p class="text-xl font-bold">${lineupCan}</p>
-            <p class="text-xs mt-1">라인업 가능</p>
-          </div>
-          <div class="lineup-조건부 rounded-xl p-3 text-center">
-            <p class="text-xl font-bold">${lineupCond}</p>
-            <p class="text-xs mt-1">조건부</p>
-          </div>
-          <div class="lineup-제외 rounded-xl p-3 text-center">
-            <p class="text-xl font-bold">${lineupOut}</p>
-            <p class="text-xs mt-1">라인업 제외</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-3">이번 주 QT / 가테</p>
-        <div class="grid grid-cols-3 gap-2">
-          <div class="bg-blue-50 rounded-xl p-3 text-center">
-            <p class="text-xl font-bold text-blue-700">${qtSubmit}</p>
-            <p class="text-xs text-gray-500 mt-1">QT 제출</p>
-          </div>
-          <div class="bg-green-50 rounded-xl p-3 text-center">
-            <p class="text-xl font-bold text-green-700">${gateOk}</p>
-            <p class="text-xs text-gray-500 mt-1">가테 완료</p>
-          </div>
-          <div class="bg-red-50 rounded-xl p-3 text-center">
-            <p class="text-xl font-bold text-red-600">${gateMiss}</p>
-            <p class="text-xs text-gray-500 mt-1">가테 미완료</p>
+            <p class="text-xs text-gray-500 mt-1">${getMonthStr(month)} 생일자</p>
           </div>
         </div>
       </div>
@@ -1054,7 +1022,7 @@ function renderDashboard() {
           <div class="space-y-2">
             ${monthBirthdays.map(s=>{
               const todayFlag = isToday(s.birthDate) ? ' birthday-today' : '';
-              return `<div class="flex items-center justify-between rounded-xl p-3 ${todayFlag} bg-pink-50">
+              return `<div class="flex items-center justify-between rounded-xl p-3${todayFlag} bg-pink-50">
                 <div class="flex items-center gap-2">
                   <div class="w-8 h-8 rounded-full badge-${s.group} flex items-center justify-center text-xs font-bold">${s.name[0]}</div>
                   <div>
@@ -1062,20 +1030,19 @@ function renderDashboard() {
                     <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)} · ${s.group}</p>
                   </div>
                 </div>
-                ${s.phone ? `<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">📞 전화</a>` : ''}
+                ${s.phone?`<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">📞 전화</a>`:''}
               </div>`;
             }).join('')}
           </div>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
       <div class="bg-white rounded-2xl p-4 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-3">빠른 메뉴</p>
         <div class="grid grid-cols-2 gap-3">
-          <button onclick="navigate('check')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📋 체크표 작성</button>
-          <button onclick="openQRModal()" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">📱 QR 출석</button>
-          <button onclick="navigate('birthday')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">🎂 생일 관리</button>
-          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업 현황</button>
+          <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📖 말씀 큐티</button>
+          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업</button>
+          <button onclick="navigate('check')" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">📋 체크표</button>
+          <button onclick="navigate('birthday')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">🎂 생일</button>
         </div>
       </div>
     </div>
@@ -1398,8 +1365,257 @@ function renderCheckCards(month, weeks) {
 }
 
 // ==========================================
-// QT 제출
+// QT 게시판 (말씀 큐티)
 // ==========================================
+let qtBoardPostId = null;
+let selectedQTDay = null;
+
+function formatDate(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function makePostTitle(satDateStr) {
+  const wdays = ['일','월','화','수','목','금','토'];
+  const days = getWeekDays(satDateStr);
+  const mon = days[0].date, fri = days[4].date;
+  const fmt = d => d.slice(2).replace(/-/g,'');
+  return `${fmt(mon)}(${wdays[new Date(mon).getDay()]})-${fmt(fri)}(${wdays[new Date(fri).getDay()]}) 말씀큐티`;
+}
+
+function renderQTSubmit() {
+  if (qtBoardPostId) renderQTPost(qtBoardPostId);
+  else renderQTPostList();
+}
+
+function renderQTPostList() {
+  const admin = isAdmin();
+  const posts = [...(state.qtPosts||[])].reverse();
+  const userId = state.currentUser;
+
+  let html = `
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-bold text-gray-800">말씀 큐티 게시판</h2>
+      ${admin ? `<button onclick="openCreatePost()" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-full font-semibold">+ 새 글</button>` : ''}
+    </div>`;
+
+  if (!posts.length) {
+    html += `<div class="text-center py-16 text-gray-400">
+      <p class="text-5xl mb-3">📖</p>
+      <p class="text-sm font-semibold">아직 게시글이 없어요</p>
+      ${admin ? '<p class="text-xs mt-1 text-gray-400">+ 새 글 버튼으로 이번 주 큐티를 등록하세요</p>' : ''}
+    </div>`;
+  } else {
+    html += `<div class="space-y-3">
+      ${posts.map(p => {
+        const comments = (state.qtComments||[]).filter(c=>c.postId===p.id);
+        const myComment = comments.find(c=>c.studentId===userId);
+        return `
+          <div class="bg-white rounded-2xl p-4 shadow-sm cursor-pointer active:opacity-80" onclick="openQTPost('${p.id}')">
+            <div class="flex items-start justify-between gap-2">
+              <p class="font-semibold text-gray-800 text-sm leading-snug">${p.title}</p>
+              ${myComment
+                ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">✓ 완료</span>`
+                : `<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0">미제출</span>`}
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5">댓글 ${comments.length}개 · ${formatDate(p.createdAt)}</p>
+          </div>`;
+      }).join('')}
+    </div>`;
+  }
+  document.getElementById('qt-submit-content').innerHTML = html;
+}
+
+function openCreatePost() {
+  if (!isAdmin()) return;
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  let weekIdx = weeks.length - 1;
+  // 가장 가까운 미래 주차 선택
+  for (let i = 0; i < weeks.length; i++) {
+    if (new Date(weeks[i].satDate) >= TODAY) { weekIdx = i; break; }
+  }
+  const week = weeks[weekIdx];
+  const weekKey = `${month}-w${weekIdx}`;
+  const existing = (state.qtPosts||[]).find(p=>p.weekKey===weekKey);
+  if (existing) { alert('이미 이번 주 게시글이 있어요'); openQTPost(existing.id); return; }
+  const passages = getWeekDays(week.satDate);
+  const post = {
+    id: 'post_'+Date.now(),
+    title: makePostTitle(week.satDate),
+    weekKey, month, weekIdx,
+    satDate: week.satDate,
+    passages,
+    createdAt: Date.now(),
+  };
+  if (!state.qtPosts) state.qtPosts = [];
+  state.qtPosts.push(post);
+  saveState();
+  openQTPost(post.id);
+}
+
+function openQTPost(postId) {
+  qtBoardPostId = postId;
+  selectedQTDay = null;
+  renderQTPost(postId);
+}
+
+function closeQTPost() {
+  qtBoardPostId = null;
+  selectedQTDay = null;
+  renderQTPostList();
+}
+
+function renderQTPost(postId) {
+  const post = (state.qtPosts||[]).find(p=>p.id===postId);
+  if (!post) { closeQTPost(); return; }
+  const comments = (state.qtComments||[]).filter(c=>c.postId===postId);
+  const myComment = comments.find(c=>c.studentId===state.currentUser);
+  const admin = isAdmin();
+
+  const passageRows = (post.passages||[]).map(p=>`
+    <div class="flex items-baseline gap-2 py-1 border-b border-blue-100 last:border-0">
+      <span class="text-gray-400 text-xs w-4 flex-shrink-0">${p.day}</span>
+      <span class="text-gray-500 text-xs flex-shrink-0">${p.date.slice(5).replace('-','/')}</span>
+      <span class="text-blue-700 text-xs font-medium">${p.passage||'-'}</span>
+    </div>`).join('');
+
+  const commentList = comments.length
+    ? comments.map(c=>{
+        const s = state.students.find(x=>x.id===c.studentId);
+        const isMe = c.studentId === state.currentUser;
+        return `
+          <div class="rounded-xl p-3 ${isMe?'bg-purple-50 border border-purple-200':'bg-gray-50'}">
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-2">
+                <span class="badge-${s?.group||'솔라디'} text-xs px-1.5 py-0.5 rounded font-semibold">${s?.group?.[0]||'?'}</span>
+                <span class="text-sm font-semibold text-gray-800">${s?.name||'?'}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                ${c.qtCount!==undefined&&c.qtCount!==''?`<span class="qt-${c.qtCount} text-xs px-2 py-0.5 rounded-full font-bold">QT ${c.qtCount}일</span>`:''}
+                <span class="text-xs text-gray-400">${formatDate(c.createdAt)}</span>
+              </div>
+            </div>
+            ${c.content?`<p class="text-sm text-gray-700 mt-1 whitespace-pre-wrap leading-relaxed">${c.content}</p>`:''}
+            ${c.imageKey&&qtImages[c.imageKey]?`<img src="${qtImages[c.imageKey]}" class="w-full rounded-lg mt-2 max-h-52 object-cover cursor-pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'13rem':'none'">`:''}
+            ${(isMe||admin)?`<button onclick="deleteQTComment('${c.id}')" class="text-xs text-gray-400 mt-1 underline">삭제</button>`:''}
+          </div>`;
+      }).join('')
+    : `<p class="text-xs text-gray-400 text-center py-6">아직 댓글이 없어요. 첫 번째로 큐티를 올려보세요!</p>`;
+
+  const commentForm = myComment
+    ? `<div class="bg-green-50 rounded-xl p-3 text-center">
+        <p class="text-sm font-semibold text-green-700">✓ QT ${myComment.qtCount}일 제출 완료</p>
+        <button onclick="deleteQTComment('${myComment.id}')" class="text-xs text-gray-400 mt-1 underline">수정 (삭제 후 재작성)</button>
+       </div>`
+    : `<div class="border-t pt-4 space-y-3">
+        <div>
+          <p class="text-xs font-semibold text-gray-600 mb-2">이번 주 큐티 일수</p>
+          <div class="grid grid-cols-6 gap-1.5" id="qt-day-btns">
+            ${['5','4','3','2','1','0'].map(v=>`
+              <button onclick="selectQTDay('${v}')" id="qtday-${v}"
+                class="py-2.5 rounded-xl text-sm font-bold border-2 border-gray-200 bg-white text-gray-700">
+                ${v==='0'?'못함':v+'일'}
+              </button>`).join('')}
+          </div>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-gray-600 mb-1">묵상 내용 <span class="font-normal text-gray-400">(선택)</span></p>
+          <textarea id="qt-comment-text" rows="4" placeholder="말씀 나눔, 느낀점, 적용점을 자유롭게 써주세요..." class="w-full border rounded-xl p-3 text-sm"></textarea>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-gray-600 mb-1">사진 첨부 <span class="font-normal text-gray-400">(선택)</span></p>
+          <label for="qt-img-input" class="flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-2.5 cursor-pointer hover:border-purple-400">
+            <span class="text-xl">📷</span><span class="text-xs text-gray-500">큐티 노트 사진</span>
+          </label>
+          <input type="file" id="qt-img-input" accept="image/*" capture="environment" class="hidden" onchange="qtPreviewImg(this)">
+          <div id="qt-img-preview" class="mt-2"></div>
+        </div>
+        <button onclick="submitQTComment('${post.id}')" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold text-sm">큐티 제출하기</button>
+      </div>`;
+
+  const html = `
+    <div class="space-y-4">
+      <button onclick="closeQTPost()" class="flex items-center gap-1 text-purple-700 font-semibold text-sm">← 목록</button>
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <h2 class="font-bold text-gray-800 mb-3">${post.title}</h2>
+        ${passageRows ? `<div class="bg-blue-50 rounded-xl p-3">${passageRows}</div>` : ''}
+        ${admin ? `<button onclick="deletePost('${post.id}')" class="text-xs text-gray-400 mt-2 underline">게시글 삭제</button>` : ''}
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs font-semibold text-gray-500 mb-3">큐티 ${comments.length}명 제출</p>
+        <div class="space-y-2 mb-4">${commentList}</div>
+        ${commentForm}
+      </div>
+    </div>`;
+  document.getElementById('qt-submit-content').innerHTML = html;
+}
+
+function selectQTDay(v) {
+  selectedQTDay = v;
+  ['5','4','3','2','1','0'].forEach(k => {
+    const btn = document.getElementById(`qtday-${k}`);
+    if (!btn) return;
+    if (k === v) btn.className = btn.className.replace('border-gray-200 bg-white text-gray-700','border-purple-500 bg-purple-50 text-purple-700');
+    else btn.className = btn.className.replace('border-purple-500 bg-purple-50 text-purple-700','border-gray-200 bg-white text-gray-700');
+  });
+}
+
+let _qtPendingImg = null;
+
+function qtPreviewImg(input) {
+  if (!input.files?.[0]) return;
+  compressImage(input.files[0], data => {
+    _qtPendingImg = data;
+    const el = document.getElementById('qt-img-preview');
+    if (el) el.innerHTML = `<div class="relative"><img src="${data}" class="w-full rounded-xl max-h-52 object-cover"><button onclick="_qtPendingImg=null;document.getElementById('qt-img-preview').innerHTML=''" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button></div>`;
+  });
+}
+
+function submitQTComment(postId) {
+  if (!state.currentUser) return;
+  if (selectedQTDay === null) { alert('큐티 일수를 선택해 주세요'); return; }
+  const post = (state.qtPosts||[]).find(p=>p.id===postId);
+  if (!post) return;
+  const content = document.getElementById('qt-comment-text')?.value || '';
+  let imageKey = null;
+  if (_qtPendingImg) {
+    imageKey = checkKey(state.currentUser, post.month, post.weekIdx) + '_qt';
+    qtImages[imageKey] = _qtPendingImg;
+    saveQTImages();
+    _qtPendingImg = null;
+  }
+  const comment = { id:'c_'+Date.now(), postId, studentId:state.currentUser, content, qtCount:selectedQTDay, imageKey, createdAt:Date.now() };
+  if (!state.qtComments) state.qtComments = [];
+  state.qtComments.push(comment);
+  // auto-update check data
+  const c = getCheck(state.currentUser, post.month, post.weekIdx);
+  c.qt = selectedQTDay; c.qtContent = content;
+  setCheck(state.currentUser, post.month, post.weekIdx, c);
+  selectedQTDay = null;
+  renderQTPost(postId);
+}
+
+function deleteQTComment(commentId) {
+  const c = (state.qtComments||[]).find(x=>x.id===commentId);
+  if (!c) return;
+  if (c.studentId !== state.currentUser && !isAdmin()) return;
+  const postId = c.postId;
+  state.qtComments = state.qtComments.filter(x=>x.id!==commentId);
+  saveState();
+  renderQTPost(postId);
+}
+
+function deletePost(postId) {
+  if (!isAdmin()) return;
+  if (!confirm('게시글을 삭제할까요?')) return;
+  state.qtPosts = (state.qtPosts||[]).filter(p=>p.id!==postId);
+  state.qtComments = (state.qtComments||[]).filter(c=>c.postId!==postId);
+  saveState();
+  closeQTPost();
+}
+
+// legacy stub (no longer used but referenced in navigate)
 function getQTWeekInfo(month) {
   const weeks = getMonthWeeks(month);
   // 오늘 기준 현재 또는 가장 가까운 주차 반환
@@ -1436,14 +1652,11 @@ function renderQTSubmit() {
     return `${d.getMonth()+1}/${d.getDate()} (금) 23:59`;
   })();
 
-  if (isAdmin()) {
-    renderQTSubmitAdmin(month, weeks);
-  } else {
-    renderQTSubmitMember(user, month, weeks, deadlinePassed, deadlineStr);
-  }
+  // legacy: redirect to new board
+  renderQTPostList();
 }
 
-function renderQTSubmitMember(user, month, weeks, deadlinePassed, deadlineStr) {
+function renderQTSubmitMember_UNUSED(user, month, weeks, deadlinePassed, deadlineStr) {
   if (!user) { document.getElementById('qt-submit-content').innerHTML = '<p class="text-center text-gray-400 py-8">로그인이 필요합니다</p>'; return; }
 
   const isLeader = user.group === '팀장';
@@ -1948,15 +2161,19 @@ let lineupService = '1부';
 
 function switchLineupService(svc) {
   lineupService = svc;
-  document.getElementById('lineup-tab-1').className = `flex-1 py-2 rounded-xl text-sm font-bold ${svc==='1부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}`;
-  document.getElementById('lineup-tab-2').className = `flex-1 py-2 rounded-xl text-sm font-bold ${svc==='2부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}`;
-  renderLineupWeeks();
+  const t1 = document.getElementById('lineup-tab-1');
+  const t2 = document.getElementById('lineup-tab-2');
+  if (t1) t1.className = `flex-1 py-2 rounded-xl text-sm font-bold ${svc==='1부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}`;
+  if (t2) t2.className = `flex-1 py-2 rounded-xl text-sm font-bold ${svc==='2부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}`;
+  renderLineupSelection();
 }
 
 function renderLineup() {
   const month = state.month;
-  let html = `
-    <h2 class="font-bold text-gray-800 mb-3">${monthName(month)} 라인업 현황</h2>
+  const html = `
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-gray-800">${monthName(month)} 라인업</h2>
+    </div>
     <div class="flex gap-2 mb-4">
       <button id="lineup-tab-1" onclick="switchLineupService('1부')"
         class="flex-1 py-2 rounded-xl text-sm font-bold ${lineupService==='1부'?'bg-purple-600 text-white':'bg-gray-100 text-gray-600'}">1부 예배</button>
@@ -1966,73 +2183,80 @@ function renderLineup() {
     <div id="lineup-weeks"></div>
   `;
   document.getElementById('lineup-content').innerHTML = html;
-  renderLineupWeeks();
+  renderLineupSelection();
 }
 
-function renderLineupWeeks() {
+function renderLineupSelection() {
   const month = state.month;
   const weeks = getMonthWeeks(month);
-  const students = activeStudents().filter(s => s.lineupService === lineupService || s.lineupService === '둘다');
+  // 마지막 주차(5주차)만 표시
+  const weekIdx = weeks.length - 1;
+  const week = weeks[weekIdx];
+  if (!week) { document.getElementById('lineup-weeks').innerHTML = '<p class="text-center text-gray-400 py-8">주차 정보 없음</p>'; return; }
 
-  let html = '<div class="space-y-4">';
+  const admin = isAdmin();
+  const groups = ['솔라디','라디스','액기스'];
 
-  weeks.forEach((w,i)=>{
-    let canCount=0, condCount=0, outCount=0;
-    const rows = students.map(s=>{
-      const l = getLineupStatus(s.id, month, i);
-      const eff = l.final || l.auto || '';
-      if(eff==='가능') canCount++;
-      else if(eff==='조건부') condCount++;
-      else if(eff==='제외'||eff==='무단') outCount++;
-      if(!eff) return '';
-      const lClass = eff==='가능'?'lineup-가능':eff==='조건부'?'lineup-조건부':eff==='무단'?'lineup-무단':'lineup-제외';
-      return `
-        <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-full badge-${s.group} flex items-center justify-center text-xs font-bold">${s.name[0]}</div>
-            <div>
-              <p class="font-semibold text-sm text-gray-800">${s.name}</p>
-              <p class="text-xs text-gray-500">${s.group}${l.reason?` · ${l.reason}`:''}</p>
-            </div>
-          </div>
-          <div class="flex flex-col items-end gap-1">
-            <span class="text-xs ${lClass} px-2 py-0.5 rounded-full">${eff}</span>
-            ${l.auto && l.final && l.auto!==l.final ? `<span class="text-xs text-gray-400">자동: ${l.auto}</span>` : ''}
-            ${isAdmin() ? `<button onclick="overrideLineup('${s.id}',${i})" class="text-xs text-purple-600 underline">수정</button>` : ''}
-          </div>
-        </div>`;
-    }).filter(Boolean).join('');
+  let totalIn = 0;
+  const groupBlocks = groups.map(g => {
+    const members = activeStudents()
+      .filter(s => s.group === g && (s.lineupService === lineupService || s.lineupService === '둘다') && s.status !== '군복무')
+      .sort((a,b) => a.name.localeCompare(b.name, 'ko'));
+    if (!members.length) return '';
 
-    if(!rows) return;
+    let gIn = 0;
+    const chips = members.map(s => {
+      const key = `${s.id}_${month}_w${weekIdx}`;
+      const isIn = state.lineups[key]?.final === '가능';
+      if (isIn) { gIn++; totalIn++; }
 
-    html += `
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></h3>
-          <div class="flex gap-1 text-xs">
-            <span class="lineup-가능 px-2 py-0.5 rounded-full">${canCount}</span>
-            <span class="lineup-조건부 px-2 py-0.5 rounded-full">${condCount}</span>
-            <span class="lineup-제외 px-2 py-0.5 rounded-full">${outCount}</span>
-          </div>
+      const style = isIn
+        ? 'bg-green-500 text-white shadow-sm'
+        : 'bg-gray-100 text-gray-600 border border-gray-200';
+
+      const instLabel = s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : '';
+      return `<button
+        ${admin ? `onclick="toggleLineupMember('${s.id}',${weekIdx})"` : ''}
+        class="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${style} ${admin?'active:scale-95 cursor-pointer':'cursor-default'}">
+        ${isIn?'<span class="text-xs">✓</span>':''}${s.name}${instLabel}
+      </button>`;
+    }).join('');
+
+    return `
+      <div class="mb-5">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="badge-${g} text-xs font-bold px-2 py-0.5 rounded-full">${g}</span>
+          <span class="text-xs text-gray-400">${gIn}/${members.length}명 선택</span>
         </div>
-        ${rows || '<p class="text-xs text-gray-400">체크 데이터 없음</p>'}
+        <div class="flex flex-wrap gap-2">${chips}</div>
       </div>`;
-  });
+  }).join('');
 
-  html += '</div>';
+  const html = `
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="font-semibold text-gray-800">${week.label}
+          <span class="text-xs text-gray-400 font-normal ml-1">토 ${week.satDate.slice(5)} / 주 ${week.sunDate.slice(5)}</span>
+        </h3>
+        <span class="lineup-가능 text-xs px-2 py-0.5 rounded-full">${totalIn}명</span>
+      </div>
+      ${admin ? '<p class="text-xs text-purple-500 mb-4">이름을 탭하면 선택 ↔ 해제 (두 번 탭: 제외)</p>' : ''}
+      ${groupBlocks}
+    </div>
+  `;
   document.getElementById('lineup-weeks').innerHTML = html;
 }
 
-function overrideLineup(studentId, weekIdx) {
+function toggleLineupMember(studentId, weekIdx) {
+  if (!isAdmin()) return;
   const key = `${studentId}_${state.month}_w${weekIdx}`;
-  const current = state.lineups[key] || autoLineup(studentId, state.month, weekIdx);
-  const options = ['가능','조건부','제외','무단','확인필요',''];
-  const choice = prompt(`라인업 상태 변경\n현재: ${current.final||current.auto||'미정'}\n\n선택: ${options.filter(Boolean).join(' / ')}`);
-  if (choice !== null) {
-    state.lineups[key] = { ...current, final: choice };
-    saveState();
-    renderLineupWeeks();
-  }
+  const currentFinal = state.lineups[key]?.final ?? '';
+  // 탭: (미선택) → 가능 → (미선택)
+  const newFinal = currentFinal === '가능' ? '' : '가능';
+  if (newFinal === '') delete state.lineups[key];
+  else state.lineups[key] = { final: newFinal };
+  saveState();
+  renderLineupSelection();
 }
 
 // ==========================================
