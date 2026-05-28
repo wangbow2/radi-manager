@@ -1678,46 +1678,36 @@ function updateHeaderUserPhoto() {
 // ==========================================
 // DASHBOARD
 // ==========================================
-function renderWeeklyFiles() {
-  // 이번주 주일 날짜 계산 (일요일=0, 월~토 → 다음 일요일)
-  const today = new Date();
-  const daysUntilSun = (7 - today.getDay()) % 7;
-  const targetSun = new Date(today);
-  targetSun.setDate(today.getDate() + daysUntilSun);
-
-  const yr = targetSun.getFullYear();
-  const mo = targetSun.getMonth() + 1;
+function _weeklyFileCard(sunDate, label, admin) {
+  const yr = sunDate.getFullYear();
+  const mo = sunDate.getMonth() + 1;
   const month = `${yr}-${String(mo).padStart(2,'0')}`;
-
-  // 해당 월 첫 번째 주일 구하기
   const firstSun = new Date(yr, mo - 1, 1);
   while (firstSun.getDay() !== 0) firstSun.setDate(firstSun.getDate() + 1);
-  const wk = Math.round((targetSun - firstSun) / (7 * 24 * 60 * 60 * 1000)) + 1;
-
+  const wk = Math.round((sunDate - firstSun) / (7 * 24 * 60 * 60 * 1000)) + 1;
   const f = ((state.weeklyFiles || {})[month] || {})[wk] || {};
-  const admin = isAdmin() || isLeader();
-  const dateStr = `${mo}/${targetSun.getDate()}`;
+  const dateStr = `${mo}/${sunDate.getDate()}`;
 
-  const btn = (label, key, icon, color) => {
+  const btn = (lbl, key, icon, color) => {
     const url = f[key];
     if (url) {
       return `<a href="${url}" download class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
-        <span>${icon}</span><span>${label}</span>
+        <span>${icon}</span><span>${lbl}</span>
       </a>`;
     } else if (admin) {
       return `<button onclick="openWeeklyFileEdit('${month}',${wk},'${key}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs">
-        <span>${icon}</span><span>${label}</span>
+        <span>${icon}</span><span>${lbl}</span>
       </button>`;
     }
     return `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs opacity-50">
-      <span>${icon}</span><span>${label}</span>
+      <span>${icon}</span><span>${lbl}</span>
     </span>`;
   };
 
   return `
     <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs text-gray-500 font-semibold">📁 이번주 주일 자료 <span class="text-gray-400 font-normal">${mo}월 ${wk}주차 (${dateStr})</span></p>
+        <p class="text-xs text-gray-500 font-semibold">📁 ${label} <span class="text-gray-400 font-normal">${mo}월 ${wk}주차 (${dateStr})</span></p>
         ${admin ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-500 font-semibold">편집</button>` : ''}
       </div>
       <div class="flex gap-1.5">
@@ -1727,6 +1717,23 @@ function renderWeeklyFiles() {
         ${btn('2부실황', 'live', '🎬', 'bg-orange-50 text-orange-700')}
       </div>
     </div>`;
+}
+
+function renderWeeklyFiles() {
+  const today = new Date();
+  const admin = isAdmin() || isLeader();
+
+  if (today.getDay() === 0) {
+    // 오늘이 주일 → 이번주만
+    return _weeklyFileCard(today, '이번주', admin);
+  } else {
+    // 평일 → 지난주 + 오는주
+    const lastSun = new Date(today);
+    lastSun.setDate(today.getDate() - today.getDay());
+    const nextSun = new Date(today);
+    nextSun.setDate(today.getDate() + (7 - today.getDay()));
+    return _weeklyFileCard(lastSun, '지난주', admin) + _weeklyFileCard(nextSun, '오는주', admin);
+  }
 }
 
 function openWeeklyFileEdit(month, wk, key) { openWeeklyFileEditAll(month, wk); }
