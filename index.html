@@ -2760,18 +2760,24 @@ function generateQR() {
   const start = document.getElementById('qr-start').value;
   const end = document.getElementById('qr-end').value;
   const late = document.getElementById('qr-late').value;
+  if (!date) { alert('날짜를 선택해 주세요'); return; }
+
   const token = btoa(unescape(encodeURIComponent(JSON.stringify({ type:qrType, date, start, end, late, ts: Date.now() }))));
   const url = `${location.origin}${location.pathname}?qr=${token}`;
-
   const output = document.getElementById('qr-output');
-  output.innerHTML = '<canvas id="qr-canvas"></canvas>';
+  output.innerHTML = '<p class="text-xs text-gray-400 py-2">생성 중...</p>';
 
-  if (typeof QRCode !== 'undefined') {
-    QRCode.toCanvas(document.getElementById('qr-canvas'), url, { width: 200, margin: 2 }, (err)=>{
-      if(err) output.innerHTML = `<p class="text-xs text-gray-500 break-all">${url}</p>`;
-    });
-  } else {
-    output.innerHTML = `<p class="text-xs text-blue-600 break-all underline">${url}</p>`;
+  try {
+    if (typeof QRCode === 'undefined') throw new Error('QR 라이브러리 없음');
+    QRCode.toDataURL(url, { width: 220, margin: 2 })
+      .then(dataUrl => {
+        output.innerHTML = `<img src="${dataUrl}" style="width:210px;height:210px;margin:0 auto;display:block;" class="rounded-lg shadow">`;
+      })
+      .catch(err => {
+        output.innerHTML = `<p class="text-xs text-red-500 mb-1">오류: ${err.message}</p><p class="text-xs text-blue-600 break-all">${url}</p>`;
+      });
+  } catch(e) {
+    output.innerHTML = `<p class="text-xs text-gray-500 mb-1">링크로 공유하세요:</p><p class="text-xs text-blue-600 break-all">${url}</p>`;
   }
 
   document.getElementById('qr-info').textContent = `${qrType} ${date} | ${start}~${end} | 지각: ${late} 이후`;
