@@ -1679,47 +1679,46 @@ function updateHeaderUserPhoto() {
 // DASHBOARD
 // ==========================================
 function renderWeeklyFiles() {
-  const month = state.month;
-  const [yr, mo] = month.split('-').map(Number);
-  const monthFiles = (state.weeklyFiles || {})[month] || {};
+  // 이번주 주일 날짜 계산 (일요일=0, 월~토 → 다음 일요일)
+  const today = new Date();
+  const daysUntilSun = (7 - today.getDay()) % 7;
+  const targetSun = new Date(today);
+  targetSun.setDate(today.getDate() + daysUntilSun);
 
-  // 해당 월의 주일 날짜 계산
-  const sundays = [];
-  const d = new Date(yr, mo - 1, 1);
-  while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
-  while (d.getMonth() === mo - 1) {
-    sundays.push(new Date(d));
-    d.setDate(d.getDate() + 7);
-  }
+  const yr = targetSun.getFullYear();
+  const mo = targetSun.getMonth() + 1;
+  const month = `${yr}-${String(mo).padStart(2,'0')}`;
 
-  if (!sundays.length) return '';
+  // 해당 월 첫 번째 주일 구하기
+  const firstSun = new Date(yr, mo - 1, 1);
+  while (firstSun.getDay() !== 0) firstSun.setDate(firstSun.getDate() + 1);
+  const wk = Math.round((targetSun - firstSun) / (7 * 24 * 60 * 60 * 1000)) + 1;
 
-  const rows = sundays.map((sun, i) => {
-    const wk = i + 1;
-    const dateStr = `${mo}/${sun.getDate()}`;
-    const f = monthFiles[wk] || {};
-    const admin = isAdmin() || isLeader();
+  const f = ((state.weeklyFiles || {})[month] || {})[wk] || {};
+  const admin = isAdmin() || isLeader();
+  const dateStr = `${mo}/${targetSun.getDate()}`;
 
-    const btn = (label, key, icon, color) => {
-      const url = f[key];
-      if (url) {
-        return `<a href="${url}" download class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
-          <span>${icon}</span><span>${label}</span>
-        </a>`;
-      } else if (admin) {
-        return `<button onclick="openWeeklyFileEdit('${month}',${wk},'${key}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs">
-          <span>${icon}</span><span>${label}</span>
-        </button>`;
-      }
-      return `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs opacity-50">
+  const btn = (label, key, icon, color) => {
+    const url = f[key];
+    if (url) {
+      return `<a href="${url}" download class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
         <span>${icon}</span><span>${label}</span>
-      </span>`;
-    };
+      </a>`;
+    } else if (admin) {
+      return `<button onclick="openWeeklyFileEdit('${month}',${wk},'${key}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs">
+        <span>${icon}</span><span>${label}</span>
+      </button>`;
+    }
+    return `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs opacity-50">
+      <span>${icon}</span><span>${label}</span>
+    </span>`;
+  };
 
-    return `<div class="border-b border-gray-50 last:border-0 py-2">
-      <div class="flex items-center justify-between mb-1.5">
-        <span class="text-xs font-bold text-gray-700">${wk}주차 <span class="text-gray-400 font-normal">(${dateStr})</span></span>
-        ${(isAdmin() || isLeader()) ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-500 font-semibold">편집</button>` : ''}
+  return `
+    <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs text-gray-500 font-semibold">📁 이번주 주일 자료 <span class="text-gray-400 font-normal">${mo}월 ${wk}주차 (${dateStr})</span></p>
+        ${admin ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-500 font-semibold">편집</button>` : ''}
       </div>
       <div class="flex gap-1.5">
         ${btn('콘티', 'conti', '📄', 'bg-blue-50 text-blue-700')}
@@ -1727,13 +1726,6 @@ function renderWeeklyFiles() {
         ${btn('주일MP3', 'sun', '🎶', 'bg-purple-50 text-purple-700')}
         ${btn('2부실황', 'live', '🎬', 'bg-orange-50 text-orange-700')}
       </div>
-    </div>`;
-  }).join('');
-
-  return `
-    <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
-      <p class="text-xs text-gray-500 font-semibold mb-1">📁 ${getMonthStr(month)} 주일 자료</p>
-      ${rows}
     </div>`;
 }
 
