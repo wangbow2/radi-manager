@@ -2176,7 +2176,7 @@ function openCheckModal(studentId, weekIdx, focusField) {
         <label class="text-xs font-semibold text-gray-600 block mb-2">가테</label>
         <div class="flex gap-2">
           ${[['O','통과'],['X','미완료'],['','빈칸']].map(([v,l])=>`
-            <button onclick="setTempCheck('gate','${v}')"
+            <button id="gate-opt-${v||'empty'}" onclick="setTempCheck('gate','${v}')"
               class="flex-1 py-2 rounded-lg text-sm font-semibold ${v==='O'?'st-O':v==='X'?'st-X':'bg-gray-100 text-gray-600'} ${tempCheck.gate===v?'ring-2 ring-purple-500':'opacity-60'}">
               ${l}
             </button>`).join('')}
@@ -2186,7 +2186,7 @@ function openCheckModal(studentId, weekIdx, focusField) {
         <label class="text-xs font-semibold text-gray-600 block mb-2">토요일 출석</label>
         <div class="flex flex-wrap gap-2">
           ${ATTENDANCE_OPTIONS.concat(['']).map(v=>`
-            <button onclick="setTempCheck('sat','${v}')"
+            <button id="sat-opt-${v||'empty'}" onclick="setTempCheck('sat','${v}')"
               class="px-2 py-1 rounded-lg text-xs font-semibold ${v?`st-${v}`:'bg-gray-100 text-gray-500'} ${tempCheck.sat===v?'ring-2 ring-purple-500':'opacity-60'}">
               ${v||'빈칸'}
             </button>`).join('')}
@@ -2196,7 +2196,7 @@ function openCheckModal(studentId, weekIdx, focusField) {
         <label class="text-xs font-semibold text-gray-600 block mb-2">주일 출석</label>
         <div class="flex flex-wrap gap-2">
           ${ATTENDANCE_OPTIONS.concat(['']).map(v=>`
-            <button onclick="setTempCheck('sun','${v}')"
+            <button id="sun-opt-${v||'empty'}" onclick="setTempCheck('sun','${v}')"
               class="px-2 py-1 rounded-lg text-xs font-semibold ${v?`st-${v}`:'bg-gray-100 text-gray-500'} ${tempCheck.sun===v?'ring-2 ring-purple-500':'opacity-60'}">
               ${v||'빈칸'}
             </button>`).join('')}
@@ -2240,16 +2240,39 @@ function openCheckModal(studentId, weekIdx, focusField) {
 
 function setTempCheck(field, value) {
   tempCheck[field] = value;
-  // Rerender buttons
   if (field === 'qt') {
     QT_OPTIONS.forEach(v=>{
       const btn = document.getElementById(`qt-opt-${v||'empty'}`);
-      if(btn) btn.classList.toggle('ring-2', v===value);
-      if(btn) btn.classList.toggle('ring-purple-500', v===value);
-      if(btn) btn.classList.toggle('opacity-60', v!==value);
+      if (!btn) return;
+      btn.classList.toggle('ring-2', v===value);
+      btn.classList.toggle('ring-purple-500', v===value);
+      btn.classList.toggle('opacity-60', v!==value);
+    });
+  } else if (field === 'gate') {
+    ['O','X',''].forEach(v=>{
+      const btn = document.getElementById(`gate-opt-${v||'empty'}`);
+      if (!btn) return;
+      btn.classList.toggle('ring-2', v===value);
+      btn.classList.toggle('ring-purple-500', v===value);
+      btn.classList.toggle('opacity-60', v!==value);
+    });
+  } else if (field === 'sat') {
+    ATTENDANCE_OPTIONS.concat(['']).forEach(v=>{
+      const btn = document.getElementById(`sat-opt-${v||'empty'}`);
+      if (!btn) return;
+      btn.classList.toggle('ring-2', v===value);
+      btn.classList.toggle('ring-purple-500', v===value);
+      btn.classList.toggle('opacity-60', v!==value);
+    });
+  } else if (field === 'sun') {
+    ATTENDANCE_OPTIONS.concat(['']).forEach(v=>{
+      const btn = document.getElementById(`sun-opt-${v||'empty'}`);
+      if (!btn) return;
+      btn.classList.toggle('ring-2', v===value);
+      btn.classList.toggle('ring-purple-500', v===value);
+      btn.classList.toggle('opacity-60', v!==value);
     });
   }
-  // Re-render for other fields (simpler approach)
 }
 
 function saveCheck() {
