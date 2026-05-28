@@ -1490,7 +1490,6 @@ function navigate(page, extra, isBack) {
   // Route guards for regular members
   if (isMember()) {
     if (page === 'students') return;
-    if (page === 'lineup') return;
     if (page === 'detail') {
       const targetId = (extra && extra.currentStudentId) || state.currentStudentId;
       if (targetId && targetId !== state.currentUser) return;
@@ -3243,10 +3242,10 @@ function renderLineupSelection() {
           <span class="text-xs text-gray-400">${gIn}/${members.length}명</span>
           ${restrictedCount ? `<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">⚠️ ${restrictedCount}명 확인필요</span>` : ''}
           ${isConfirmed ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✅ 최종확정</span>` : ''}
-          <button onclick="toggleLineupConfirm('${confirmKey}')"
+          ${canEdit ? `<button onclick="toggleLineupConfirm('${confirmKey}')"
             class="ml-auto text-xs px-3 py-1 rounded-lg font-bold ${isConfirmed ? 'bg-gray-200 text-gray-600' : 'bg-purple-600 text-white'}">
             ${isConfirmed ? '확정 취소' : '최종명단 확정'}
-          </button>
+          </button>` : ''}
         </div>
         <div class="flex flex-wrap gap-2">${chips}</div>
       </div>`;
