@@ -825,6 +825,24 @@ function loadState() {
   if (!state.loveMeetingRecords) state.loveMeetingRecords = {};
   if (!state.qrUsage) state.qrUsage = {};
   if (!state.lineupConfirmed) state.lineupConfirmed = {};
+  if (!state._may2026Attendance) {
+    const mo = '2026-05';
+    // 황영환(t1), 김예찬(t3), 정민지(t4), 정여명(t5) — 전 주차 토/주일 O
+    ['t1','t3','t4','t5'].forEach(id => {
+      [0,1,2,3,4].forEach(wi => {
+        const key = `${id}_${mo}_w${wi}`;
+        const c = state.checks[key] || {};
+        state.checks[key] = { ...c, sat: 'O', sun: 'O' };
+      });
+    });
+    // 김희원(t2) — 1주차(wi=0) 토O/주일결석, 나머지 토O/주일O
+    [0,1,2,3,4].forEach(wi => {
+      const key = `t2_${mo}_w${wi}`;
+      const c = state.checks[key] || {};
+      state.checks[key] = { ...c, sat: 'O', sun: wi === 0 ? '결석' : 'O' };
+    });
+    state._may2026Attendance = true;
+  }
   // migrate lineupService for existing students
   state.students.forEach(s => { if (!s.lineupService) s.lineupService = '1부'; });
   // migrate student roles
@@ -874,6 +892,7 @@ function saveState() {
     loveMeetingRecords: state.loveMeetingRecords,
     qrUsage: state.qrUsage,
     lineupConfirmed: state.lineupConfirmed,
+    _may2026Attendance: state._may2026Attendance,
   }));
 }
 
@@ -1257,11 +1276,12 @@ function renderDashboard() {
 
       <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
-        <div class="grid grid-cols-4 gap-2">
+        <div class="grid grid-cols-5 gap-2">
           <button onclick="navigate('check')" class="bg-blue-50 text-blue-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">📋<span>체크표</span></button>
           <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">📖<span>큐티</span></button>
           <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">⭐<span>라인업</span></button>
           <button onclick="navigate('love')" class="bg-pink-50 text-pink-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">💛<span>사랑모임</span></button>
+          <button onclick="navigate('qr')" class="bg-gray-50 text-gray-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">📷<span>QR</span></button>
         </div>
       </div>
     </div>
