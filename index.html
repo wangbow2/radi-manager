@@ -1679,17 +1679,12 @@ function updateHeaderUserPhoto() {
 // DASHBOARD
 // ==========================================
 function openFile(e, absUrl) {
-  e.preventDefault();
-  const ua = navigator.userAgent || '';
-  const isKakao = /KAKAOTALK|kakaoagent/i.test(ua);
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
-  if (isKakao && isIOS) {
-    location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(absUrl);
-  } else if (isKakao) {
-    location.href = 'intent://' + absUrl.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-  } else {
-    location.href = absUrl;
+  if (navigator.share) {
+    e.preventDefault();
+    const name = decodeURIComponent(absUrl.split('/').pop());
+    navigator.share({ title: name, url: absUrl }).catch(() => { location.href = absUrl; });
   }
+  // navigator.share 없으면 href가 그대로 동작
 }
 
 function dlFile(url, name) {
@@ -1737,7 +1732,7 @@ function _weeklyFileCard(sunDate, label, admin, extraBtn='') {
     const url = f[key];
     if (url) {
       const absUrl = url.startsWith('http') ? url : base + encodeURI(url);
-      return `<a href="${absUrl}" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
+      return `<a href="${absUrl}" onclick="openFile(event,'${absUrl}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
         <span>${icon}</span><span>${lbl}</span>
       </a>`;
     } else if (admin) {
@@ -1795,7 +1790,7 @@ function openWeeklyFilesArchive() {
     const url = f[key];
     if (!url) return `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-200 text-xs"><span>${icon}</span><span>${lbl}</span></span>`;
     const absUrl = url.startsWith('http') ? url : _base + encodeURI(url);
-    return `<a href="${absUrl}" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold"><span>${icon}</span><span>${lbl}</span></a>`;
+    return `<a href="${absUrl}" onclick="openFile(event,'${absUrl}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold"><span>${icon}</span><span>${lbl}</span></a>`;
   };
 
   const rows = months.map(month => {
