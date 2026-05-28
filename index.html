@@ -1370,13 +1370,13 @@ function renderMyPage() {
             <label for="mypage-photo-cam" class="absolute bottom-0 right-0 bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center cursor-pointer shadow-lg" title="사진 변경">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </label>
-            <input type="file" id="mypage-photo-cam" accept="image/*" class="hidden" onchange="changeProfilePhoto(this)">
+            <input type="file" id="mypage-photo-cam" accept="image/*" capture="environment" class="hidden" onchange="changeProfilePhoto(this)">
           </div>
           <h2 class="font-bold text-xl text-gray-800">${u.name}</h2>
           <p class="text-sm text-gray-400 mt-0.5">${u.grade||''} · ${u.group}</p>
           <div class="flex gap-2 justify-center mt-3">
-            <label for="mypage-photo-cam" class="text-xs text-purple-600 border border-purple-300 px-3 py-1.5 rounded-full cursor-pointer">📷 카메라</label>
-            <label for="mypage-photo-gallery" class="text-xs text-purple-600 border border-purple-300 px-3 py-1.5 rounded-full cursor-pointer">🖼 갤러리</label>
+            <label for="mypage-photo-cam" class="text-xs text-purple-600 border border-purple-300 px-3 py-1.5 rounded-full cursor-pointer active:bg-purple-50">📷 카메라</label>
+            <label for="mypage-photo-gallery" class="text-xs text-purple-600 border border-purple-300 px-3 py-1.5 rounded-full cursor-pointer active:bg-purple-50">🖼 갤러리</label>
             <input type="file" id="mypage-photo-gallery" accept="image/*" class="hidden" onchange="changeProfilePhoto(this)">
             ${photo?`<button onclick="removeProfilePhoto()" class="text-xs text-red-500 border border-red-200 px-3 py-1.5 rounded-full">삭제</button>`:''}
           </div>
@@ -1650,56 +1650,57 @@ function renderMemberDashboard() {
     const l = effectiveLineup(me.id, month, i);
     const lClass = l ? `lineup-${l==='가능'?'가능':l==='조건부'?'조건부':l==='무단'?'무단':'제외'}` : '';
     return `
-      <div class="border-b border-gray-100 py-2 last:border-0">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-xs font-semibold text-gray-600">${w.label} <span class="text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
-          ${l ? `<span class="text-xs px-2 py-0.5 rounded-full ${lClass}">${l}</span>` : ''}
+      <div class="border-b border-gray-100 py-1 last:border-0 flex items-center gap-2">
+        <span class="text-xs font-semibold text-gray-500 w-10 flex-shrink-0">${w.label}</span>
+        <div class="flex-1 grid grid-cols-4 gap-1 text-center text-xs">
+          <div class="flex flex-col"><span class="text-gray-400 text-[10px]">QT</span><span class="qt-${c.qt||'빈칸'} px-1 py-px rounded text-xs leading-tight">${c.qt||'-'}</span></div>
+          <div class="flex flex-col"><span class="text-gray-400 text-[10px]">가테</span><span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} px-1 py-px rounded text-xs leading-tight">${c.gate||'-'}</span></div>
+          <div class="flex flex-col"><span class="text-gray-400 text-[10px]">토</span><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} px-1 py-px rounded text-xs leading-tight">${c.sat||'-'}</span></div>
+          <div class="flex flex-col"><span class="text-gray-400 text-[10px]">주일</span><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} px-1 py-px rounded text-xs leading-tight">${c.sun||'-'}</span></div>
         </div>
-        <div class="grid grid-cols-4 gap-1 text-center text-xs">
-          <div><p class="text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} px-1.5 py-0.5 rounded">${c.qt||'-'}</span></div>
-          <div><p class="text-gray-400">가테</p><span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} px-1.5 py-0.5 rounded">${c.gate||'-'}</span></div>
-          <div><p class="text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} px-1.5 py-0.5 rounded">${c.sat||'-'}</span></div>
-          <div><p class="text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} px-1.5 py-0.5 rounded">${c.sun||'-'}</span></div>
-        </div>
+        ${l ? `<span class="text-[10px] px-1.5 py-px rounded-full ${lClass} flex-shrink-0">${l}</span>` : '<span class="w-8"></span>'}
       </div>`;
   }).join('');
 
+  const myPhoto = (profiles[me.id]||{}).photo;
+  const photoStyle = myPhoto ? `background-image:url(${myPhoto});background-size:cover;background-position:center` : '';
+  const photoInner = myPhoto ? '' : `<span class="text-lg font-bold text-purple-600">${me.name[0]}</span>`;
+
   const html = `
-    <div class="space-y-4">
+    <div class="space-y-3">
       ${todayBirthdays.length ? `
-        <div class="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-4 text-white">
-          <p class="text-xs opacity-80 font-semibold mb-1">🎂 오늘의 생일자</p>
-          <p class="text-xl font-bold">${todayBirthdays.map(s=>s.name).join(', ')}</p>
-          <p class="text-xs opacity-80 mt-1">생일 축하해요! 🎉</p>
+        <div class="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl px-4 py-2.5 text-white">
+          <p class="text-xs opacity-80 font-semibold">🎂 오늘의 생일자</p>
+          <p class="text-base font-bold">${todayBirthdays.map(s=>s.name).join(', ')} 🎉</p>
         </div>` : ''}
 
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="w-12 h-12 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 font-bold text-lg">${me.name[0]}</div>
-          <div>
-            <p class="font-bold text-gray-800">${me.name}</p>
+      <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 font-bold overflow-hidden flex-shrink-0" style="${photoStyle}">${photoInner}</div>
+          <div class="flex-1">
+            <p class="font-bold text-gray-800 text-sm">${me.name}</p>
             <p class="text-xs text-gray-500">${me.group} · ${me.grade||''}</p>
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2 text-center">
-          ${stats.satRate!==null?`<div class="bg-blue-50 rounded-xl p-2"><p class="text-lg font-bold text-blue-700">${stats.satRate}%</p><p class="text-xs text-gray-500">토요일 출석</p></div>`:''}
-          ${stats.sunRate!==null?`<div class="bg-purple-50 rounded-xl p-2"><p class="text-lg font-bold text-purple-700">${stats.sunRate}%</p><p class="text-xs text-gray-500">주일 출석</p></div>`:''}
-          ${stats.qtAvg!==null?`<div class="bg-green-50 rounded-xl p-2"><p class="text-lg font-bold text-green-700">${stats.qtAvg}</p><p class="text-xs text-gray-500">QT 평균</p></div>`:''}
+          ${stats.satRate!==null?`<div class="bg-blue-50 rounded-xl py-1.5"><p class="text-base font-bold text-blue-700">${stats.satRate}%</p><p class="text-xs text-gray-500">토요일</p></div>`:''}
+          ${stats.sunRate!==null?`<div class="bg-purple-50 rounded-xl py-1.5"><p class="text-base font-bold text-purple-700">${stats.sunRate}%</p><p class="text-xs text-gray-500">주일</p></div>`:''}
+          ${stats.qtAvg!==null?`<div class="bg-green-50 rounded-xl py-1.5"><p class="text-base font-bold text-green-700">${stats.qtAvg}</p><p class="text-xs text-gray-500">QT 평균</p></div>`:''}
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-2">${monthName(month)} 내 기록</p>
+      <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-1">${monthName(month)} 내 기록</p>
         ${weekRows}
       </div>
 
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-3">빠른 메뉴</p>
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📖 말씀 큐티</button>
-          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업</button>
-          <button onclick="navigate('birthday')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">🎂 생일</button>
-          <button onclick="navigate('detail',{currentStudentId:'${me.id}'})" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">👤 내 프로필</button>
+      <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl py-2.5 font-semibold text-sm">📖 말씀 큐티</button>
+          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl py-2.5 font-semibold text-sm">⭐ 라인업</button>
+          <button onclick="navigate('birthday')" class="bg-pink-50 text-pink-700 rounded-xl py-2.5 font-semibold text-sm">🎂 생일</button>
+          <button onclick="navigate('mypage')" class="bg-blue-50 text-blue-700 rounded-xl py-2.5 font-semibold text-sm">👤 마이페이지</button>
         </div>
       </div>
     </div>
