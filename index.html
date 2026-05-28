@@ -1953,12 +1953,16 @@ function renderCheckTable() {
     checkWeekIdx = found >= 0 ? found : 0;
   }
 
-  // 주차 탭 렌더링
-  const tabsHtml = weeks.map((w, i) => {
-    const active = i === checkWeekIdx;
-    return `<button onclick="selectCheckWeek(${i})" class="text-xs px-3 py-1.5 rounded-full font-semibold flex-shrink-0 ${active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}">${w.label}</button>`;
-  }).join('');
-  document.getElementById('check-week-tabs').innerHTML = tabsHtml;
+  // 주차 탭 — 팀장/관리자만 표시
+  if (isLeader()) {
+    const tabsHtml = weeks.map((w, i) => {
+      const active = i === checkWeekIdx;
+      return `<button onclick="selectCheckWeek(${i})" class="text-xs px-3 py-1.5 rounded-full font-semibold flex-shrink-0 ${active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}">${w.label}</button>`;
+    }).join('');
+    document.getElementById('check-week-tabs').innerHTML = tabsHtml;
+  } else {
+    document.getElementById('check-week-tabs').innerHTML = '';
+  }
 
   if (checkTableView==='card') {
     renderCheckCards(month, weeks);
@@ -2040,25 +2044,25 @@ function renderCheckTableView(month, weeks) {
 function renderMemberCheckView(month, weeks) {
   const me = getCurrentUser();
   if (!me) return;
-  const wi = checkWeekIdx;
-  const w = weeks[wi];
-  const c = getCheck(me.id, month, wi);
-  const tl = weekTrafficLightHtml(c);
-  const html = `
-    <div class="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div class="flex items-center justify-between mb-2">
-        <span class="font-semibold text-sm text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
-        ${tl}
-      </div>
-      <div class="grid grid-cols-4 gap-2 text-center">
-        <div><p class="text-xs text-gray-400 mb-1">QT</p><span class="text-xs px-2 py-1 rounded-lg qt-${c.qt||'빈칸'}">${c.qt||'-'}</span></div>
-        <div><p class="text-xs text-gray-400 mb-1">가테</p><span class="text-xs px-2 py-1 rounded-lg ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}">${c.gate||'-'}</span></div>
-        <div><p class="text-xs text-gray-400 mb-1">토요일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sat?`st-${c.sat}`:'st-빈칸'}">${c.sat||'-'}</span></div>
-        <div><p class="text-xs text-gray-400 mb-1">주일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sun?`st-${c.sun}`:'st-빈칸'}">${c.sun||'-'}</span></div>
-      </div>
-      ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
-    </div>`;
-  document.getElementById('check-table-content').innerHTML = html;
+  const html = weeks.map((w, i) => {
+    const c = getCheck(me.id, month, i);
+    const tl = weekTrafficLightHtml(c);
+    return `
+      <div class="bg-white rounded-xl p-3 shadow-sm mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-semibold text-sm text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
+          ${tl}
+        </div>
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div><p class="text-xs text-gray-400 mb-1">QT</p><span class="text-xs px-2 py-1 rounded-lg qt-${c.qt||'빈칸'}">${c.qt||'-'}</span></div>
+          <div><p class="text-xs text-gray-400 mb-1">가테</p><span class="text-xs px-2 py-1 rounded-lg ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}">${c.gate||'-'}</span></div>
+          <div><p class="text-xs text-gray-400 mb-1">토요일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sat?`st-${c.sat}`:'st-빈칸'}">${c.sat||'-'}</span></div>
+          <div><p class="text-xs text-gray-400 mb-1">주일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sun?`st-${c.sun}`:'st-빈칸'}">${c.sun||'-'}</span></div>
+        </div>
+        ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
+      </div>`;
+  }).join('');
+  document.getElementById('check-table-content').innerHTML = html || '<p class="text-center text-gray-400 py-8">데이터 없음</p>';
 }
 
 function renderCheckCards(month, weeks) {
