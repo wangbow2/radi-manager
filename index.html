@@ -1683,17 +1683,9 @@ function dlFile(url, name) {
   const base = location.origin + location.pathname.replace(/[^\/]+$/, '');
   const absUrl = safeUrl.startsWith('http') ? safeUrl : (base + safeUrl);
 
-  if (isKakaoTalkBrowser()) {
-    if (isIOSDevice()) {
-      location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(absUrl);
-    } else {
-      location.href = 'intent://' + absUrl.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-    }
-    return;
-  }
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if (isMobile) {
-    window.open(absUrl, '_blank');
+    location.href = absUrl;
     return;
   }
   fetch(absUrl)
@@ -1707,7 +1699,7 @@ function dlFile(url, name) {
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     })
-    .catch(() => window.open(absUrl, '_blank'));
+    .catch(() => { location.href = absUrl; });
 }
 
 function _weeklyFileCard(sunDate, label, admin, extraBtn='') {
