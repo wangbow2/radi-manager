@@ -7,6 +7,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
   * { -webkit-tap-highlight-color: transparent; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -953,6 +955,104 @@ function saveState() {
     _may2026Attendance: state._may2026Attendance,
     _phoneMigrated2026: state._phoneMigrated2026,
   }));
+  _fsSaveDebounced();
+}
+
+// ==========================================
+// FIREBASE FIRESTORE SYNC
+// ==========================================
+firebase.initializeApp({
+  apiKey: "AIzaSyBH-ogVqi9C63GIrllY2aIK76i5dwFBGgQ",
+  authDomain: "ladi-manager.firebaseapp.com",
+  projectId: "ladi-manager",
+  storageBucket: "ladi-manager.firebasestorage.app",
+  messagingSenderId: "583728554598",
+  appId: "1:583728554598:web:b5127dc45914432eadc3a7"
+});
+const _db = firebase.firestore();
+const _stateRef = _db.collection('radi').doc('state');
+let _ignoreSnapshot = false;
+let _fsDebounceTimer = null;
+
+function _getFsData() {
+  return {
+    students: state.students,
+    checks: state.checks,
+    lineups: state.lineups,
+    memos: state.memos,
+    pins: state.pins,
+    qtPosts: state.qtPosts,
+    qtComments: state.qtComments,
+    qtDayChecks: state.qtDayChecks,
+    _gateMigrated: state._gateMigrated,
+    _roleMigrated: state._roleMigrated,
+    _adminLevelMigrated: state._adminLevelMigrated,
+    pastoralApprovals: state.pastoralApprovals,
+    adminRestrictions: state.adminRestrictions,
+    editLogs: (state.editLogs||[]).slice(-100),
+    loveMeetings: state.loveMeetings,
+    loveMeetingRecords: state.loveMeetingRecords,
+    qrUsage: state.qrUsage,
+    lineupConfirmed: state.lineupConfirmed,
+    _may2026Attendance: state._may2026Attendance,
+    _phoneMigrated2026: state._phoneMigrated2026,
+  };
+}
+
+function _fsSaveDebounced() {
+  if (_fsDebounceTimer) clearTimeout(_fsDebounceTimer);
+  _fsDebounceTimer = setTimeout(() => {
+    _ignoreSnapshot = true;
+    _stateRef.set(_getFsData()).catch(e => console.warn('Firestore 저장 실패:', e));
+  }, 800);
+}
+
+function _applyFsData(fsData) {
+  const localUser = state.currentUser;
+  const localMonth = state.month;
+  Object.assign(state, fsData);
+  state.currentUser = localUser;
+  state.month = localMonth || state.month || '2026-05';
+  localStorage.setItem('radi_v4', JSON.stringify({...fsData, currentUser: localUser}));
+}
+
+function _renderCurrentPage() {
+  try {
+    const p = state.page || 'dashboard';
+    if (p === 'dashboard') { if (typeof renderDashboard === 'function') renderDashboard(); }
+    else if (p === 'check') { if (typeof renderCheckTable === 'function') renderCheckTable(); }
+    else if (p === 'lineup') { if (typeof renderLineup === 'function') renderLineup(); }
+    else if (p === 'qt') { if (typeof renderQT === 'function') renderQT(); }
+    else if (p === 'birthday') { if (typeof renderBirthday === 'function') renderBirthday(); }
+    else if (p === 'students') { if (typeof renderStudents === 'function') renderStudents(); }
+    else if (p === 'love') { if (typeof renderLovePage === 'function') renderLovePage(); }
+    else if (p === 'stats') { if (typeof renderAdminStats === 'function') renderAdminStats(); }
+  } catch(e) {}
+}
+
+function initFirestore() {
+  _stateRef.get().then(doc => {
+    if (doc.exists) {
+      _applyFsData(doc.data());
+      if (state.currentUser) {
+        updateHeaderUser();
+        updateNav();
+        _renderCurrentPage();
+      }
+    } else {
+      // 첫 실행 — 로컬 데이터를 Firestore에 업로드
+      _ignoreSnapshot = true;
+      _stateRef.set(_getFsData()).catch(e => {});
+    }
+
+    // 실시간 리스너 — 다른 기기 변경 감지
+    _stateRef.onSnapshot(doc => {
+      if (_ignoreSnapshot) { _ignoreSnapshot = false; return; }
+      if (!doc.exists) return;
+      _applyFsData(doc.data());
+      if (state.currentUser) _renderCurrentPage();
+    });
+  }).catch(e => console.warn('Firestore 연결 실패, 로컬 모드로 실행:', e));
 }
 
 // ==========================================
@@ -3782,6 +3882,7 @@ loadProfiles();
 initKakaoBanner();
 state.month = state.month || '2026-05';
 document.getElementById('header-month').textContent = state.month;
+initFirestore();
 
 // Check if QR attendance
 if (location.search.includes('qr=')) {
