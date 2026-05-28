@@ -132,13 +132,14 @@
         <button onclick="selectCheckMonth('2026-12')" data-cm="2026-12" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">12월</button>
       </div>
     </div>
-    <div class="flex items-center justify-between mb-3 px-2">
+    <div class="flex items-center justify-between mb-2 px-2">
       <h2 class="font-bold text-gray-800" id="check-title">5월 OT 체크표</h2>
       <div class="flex gap-2">
         <button onclick="toggleView()" id="view-toggle" class="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-semibold">카드뷰</button>
         <button onclick="exportCSV()" class="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-semibold">내보내기</button>
       </div>
     </div>
+    <div id="check-week-tabs" class="flex gap-1.5 overflow-x-auto pb-2 px-2 mb-2"></div>
     <div id="check-table-content"></div>
   </div>
 
@@ -1905,6 +1906,7 @@ function renderDetail(id) {
 // CHECK TABLE
 // ==========================================
 let checkTableView = 'table';
+let checkWeekIdx = null;
 
 function syncCheckTabs() {
   document.querySelectorAll('.cm-tab').forEach(btn => {
@@ -1915,12 +1917,17 @@ function syncCheckTabs() {
 
 function selectCheckMonth(ym) {
   state.month = ym;
+  checkWeekIdx = null;
   document.getElementById('header-month').textContent = ym;
-  // 탭 active 상태 갱신
   document.querySelectorAll('.cm-tab').forEach(btn => {
     const active = btn.dataset.cm === ym;
     btn.className = `cm-tab text-xs px-3 py-1.5 rounded-full font-semibold ${active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`;
   });
+  renderCheckTable();
+}
+
+function selectCheckWeek(i) {
+  checkWeekIdx = i;
   renderCheckTable();
 }
 
@@ -1935,6 +1942,24 @@ function renderCheckTable() {
   const weeks = getMonthWeeks(month);
   document.getElementById('check-title').textContent = `${getMonthStr(month)} OT 체크표`;
 
+  // 현재 주차 자동 선택 (월 변경 시 또는 초기)
+  if (checkWeekIdx === null || checkWeekIdx >= weeks.length) {
+    const today = new Date();
+    let found = weeks.findIndex(w => {
+      const sat = new Date(w.satDate + 'T00:00:00');
+      const mon = new Date(sat); mon.setDate(sat.getDate() - 5);
+      return today >= mon && today <= new Date(w.sunDate + 'T23:59:59');
+    });
+    checkWeekIdx = found >= 0 ? found : 0;
+  }
+
+  // 주차 탭 렌더링
+  const tabsHtml = weeks.map((w, i) => {
+    const active = i === checkWeekIdx;
+    return `<button onclick="selectCheckWeek(${i})" class="text-xs px-3 py-1.5 rounded-full font-semibold flex-shrink-0 ${active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}">${w.label}</button>`;
+  }).join('');
+  document.getElementById('check-week-tabs').innerHTML = tabsHtml;
+
   if (checkTableView==='card') {
     renderCheckCards(month, weeks);
   } else {
@@ -1946,63 +1971,57 @@ function renderCheckTableView(month, weeks) {
   if (isMember()) { renderMemberCheckView(month, weeks); return; }
   const students = state.students.filter(s=>s.status==='활동중');
   const groups = ['팀장','솔라디','라디스','액기스'];
+  const wi = checkWeekIdx;
+  const w = weeks[wi];
 
-  let thead = `<tr class="bg-gray-100">
+  const thead = `<tr class="bg-gray-100">
     <th class="sticky left-0 bg-gray-100 px-3 py-2 text-left text-xs font-semibold text-gray-600 min-w-16">이름</th>
-    <th class="px-1 py-2 text-xs font-semibold text-gray-500 min-w-8">분과</th>`;
-  weeks.forEach((w,i)=>{
-    thead += `<th colspan="5" class="px-2 py-2 text-xs font-semibold text-purple-700 border-l border-gray-200">${w.label}</th>`;
-  });
-  thead += '</tr>';
+    <th class="px-1 py-2 text-xs font-semibold text-gray-500 min-w-8">분과</th>
+    <th colspan="5" class="px-2 py-2 text-xs font-semibold text-purple-700 border-l border-gray-200">${w.label} (토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</th>
+  </tr>`;
 
-  let subhead = `<tr class="bg-gray-50">
+  const subhead = `<tr class="bg-gray-50">
     <th class="sticky left-0 bg-gray-50 px-3 py-1"></th>
-    <th class="px-1 py-1"></th>`;
-  weeks.forEach(w=>{
-    subhead += `
-      <th class="px-1 py-1 text-xs text-blue-600 font-medium border-l border-gray-200">QT</th>
-      <th class="px-1 py-1 text-xs text-green-600 font-medium">가테</th>
-      <th class="px-1 py-1 text-xs text-purple-600 font-medium">토</th>
-      <th class="px-1 py-1 text-xs text-orange-600 font-medium">주일</th>
-      <th class="px-1 py-1 text-xs text-gray-400 font-medium"></th>`;
-  });
-  subhead += '</tr>';
+    <th class="px-1 py-1"></th>
+    <th class="px-1 py-1 text-xs text-blue-600 font-medium border-l border-gray-200">QT</th>
+    <th class="px-1 py-1 text-xs text-green-600 font-medium">가테</th>
+    <th class="px-1 py-1 text-xs text-purple-600 font-medium">토</th>
+    <th class="px-1 py-1 text-xs text-orange-600 font-medium">주일</th>
+    <th class="px-1 py-1 text-xs text-gray-400 font-medium"></th>
+  </tr>`;
 
   let rows = '';
   groups.forEach(g=>{
     const gs = students.filter(s=>s.group===g).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     if(!gs.length) return;
-    rows += `<tr><td colspan="${2+weeks.length*4}" class="group-${g} px-3 py-1 text-xs font-bold text-gray-700 border-t-2 border-gray-300">${g} (${gs.length}명)</td></tr>`;
+    rows += `<tr><td colspan="7" class="group-${g} px-3 py-1 text-xs font-bold text-gray-700 border-t-2 border-gray-300">${g} (${gs.length}명)</td></tr>`;
     gs.forEach(s=>{
       const canEdit = isLeader();
+      const isLeaderGroup = g === '팀장';
+      const c = getCheck(s.id, month, wi);
+      const clickQT  = canEdit ? `onclick="openCheckModal('${s.id}',${wi},'qt')"` : '';
+      const clickGate= canEdit ? `onclick="openCheckModal('${s.id}',${wi},'gate')"` : '';
+      const clickSat = canEdit ? `onclick="openCheckModal('${s.id}',${wi},'sat')"` : '';
+      const clickSun = canEdit ? `onclick="openCheckModal('${s.id}',${wi},'sun')"` : '';
       rows += `<tr class="hover:bg-gray-50 group-${g}" style="opacity:0.95">
         <td class="sticky left-0 px-3 py-2 font-semibold text-sm text-gray-800 group-${g} cursor-pointer" onclick="navigate('detail',{currentStudentId:'${s.id}'})">${s.name}</td>
-        <td class="px-1 py-2"><span class="badge-${g} text-xs px-1 py-0.5 rounded font-semibold">${g[0]}</span></td>`;
-      weeks.forEach((w,i)=>{
-        const c = getCheck(s.id, month, i);
-        const isLeaderGroup = g === '팀장';
-        const clickQT  = canEdit ? `onclick="openCheckModal('${s.id}',${i},'qt')"` : '';
-        const clickGate= canEdit ? `onclick="openCheckModal('${s.id}',${i},'gate')"` : '';
-        const clickSat = canEdit ? `onclick="openCheckModal('${s.id}',${i},'sat')"` : '';
-        const clickSun = canEdit ? `onclick="openCheckModal('${s.id}',${i},'sun')"` : '';
-        rows += `
-          <td class="px-0.5 py-1 border-l border-gray-100">
-            <div class="check-cell qt-${c.qt||'빈칸'}" ${clickQT}>${c.qt||'·'}</div>
-          </td>
-          <td class="px-0.5 py-1">
-            ${isLeaderGroup
-              ? `<div class="check-cell st-빈칸 no-edit text-gray-300">-</div>`
-              : `<div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" ${clickGate}>${c.gate||'·'}</div>`}
-          </td>
-          <td class="px-0.5 py-1">
-            <div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" ${clickSat}>${c.sat||'·'}</div>
-          </td>
-          <td class="px-0.5 py-1">
-            <div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" ${clickSun}>${c.sun||'·'}</div>
-          </td>
-          <td class="px-1 py-1 text-center">${weekTrafficLightHtml(c)}</td>`;
-      });
-      rows += '</tr>';
+        <td class="px-1 py-2"><span class="badge-${g} text-xs px-1 py-0.5 rounded font-semibold">${g[0]}</span></td>
+        <td class="px-0.5 py-1 border-l border-gray-100">
+          <div class="check-cell qt-${c.qt||'빈칸'}" ${clickQT}>${c.qt||'·'}</div>
+        </td>
+        <td class="px-0.5 py-1">
+          ${isLeaderGroup
+            ? `<div class="check-cell st-빈칸 no-edit text-gray-300">-</div>`
+            : `<div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" ${clickGate}>${c.gate||'·'}</div>`}
+        </td>
+        <td class="px-0.5 py-1">
+          <div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" ${clickSat}>${c.sat||'·'}</div>
+        </td>
+        <td class="px-0.5 py-1">
+          <div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" ${clickSun}>${c.sun||'·'}</div>
+        </td>
+        <td class="px-1 py-1 text-center">${weekTrafficLightHtml(c)}</td>
+      </tr>`;
     });
   });
 
@@ -2021,31 +2040,33 @@ function renderCheckTableView(month, weeks) {
 function renderMemberCheckView(month, weeks) {
   const me = getCurrentUser();
   if (!me) return;
-  const html = weeks.map((w,i) => {
-    const c = getCheck(me.id, month, i);
-    const tl = weekTrafficLightHtml(c);
-    return `
-      <div class="bg-white rounded-xl p-3 shadow-sm mb-3">
-        <div class="flex items-center justify-between mb-2">
-          <span class="font-semibold text-sm text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
-          ${tl}
-        </div>
-        <div class="grid grid-cols-4 gap-2 text-center">
-          <div><p class="text-xs text-gray-400 mb-1">QT</p><span class="text-xs px-2 py-1 rounded-lg qt-${c.qt||'빈칸'}">${c.qt||'-'}</span></div>
-          <div><p class="text-xs text-gray-400 mb-1">가테</p><span class="text-xs px-2 py-1 rounded-lg ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}">${c.gate||'-'}</span></div>
-          <div><p class="text-xs text-gray-400 mb-1">토요일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sat?`st-${c.sat}`:'st-빈칸'}">${c.sat||'-'}</span></div>
-          <div><p class="text-xs text-gray-400 mb-1">주일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sun?`st-${c.sun}`:'st-빈칸'}">${c.sun||'-'}</span></div>
-        </div>
-        ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
-      </div>`;
-  }).join('');
-  document.getElementById('check-table-content').innerHTML = html || '<p class="text-center text-gray-400 py-8">데이터 없음</p>';
+  const wi = checkWeekIdx;
+  const w = weeks[wi];
+  const c = getCheck(me.id, month, wi);
+  const tl = weekTrafficLightHtml(c);
+  const html = `
+    <div class="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-semibold text-sm text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
+        ${tl}
+      </div>
+      <div class="grid grid-cols-4 gap-2 text-center">
+        <div><p class="text-xs text-gray-400 mb-1">QT</p><span class="text-xs px-2 py-1 rounded-lg qt-${c.qt||'빈칸'}">${c.qt||'-'}</span></div>
+        <div><p class="text-xs text-gray-400 mb-1">가테</p><span class="text-xs px-2 py-1 rounded-lg ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}">${c.gate||'-'}</span></div>
+        <div><p class="text-xs text-gray-400 mb-1">토요일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sat?`st-${c.sat}`:'st-빈칸'}">${c.sat||'-'}</span></div>
+        <div><p class="text-xs text-gray-400 mb-1">주일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sun?`st-${c.sun}`:'st-빈칸'}">${c.sun||'-'}</span></div>
+      </div>
+      ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
+    </div>`;
+  document.getElementById('check-table-content').innerHTML = html;
 }
 
 function renderCheckCards(month, weeks) {
   if (isMember()) { renderMemberCheckView(month, weeks); return; }
   const students = state.students.filter(s=>s.status==='활동중');
   const groups = ['팀장','솔라디','라디스','액기스'];
+  const wi = checkWeekIdx;
+  const w = weeks[wi];
 
   let html = '';
   groups.forEach(g=>{
@@ -2055,24 +2076,22 @@ function renderCheckCards(month, weeks) {
     const canEdit = isLeader();
     gs.forEach(s=>{
       const isLeaderGroup = s.group === '팀장';
-      const weekCards = weeks.map((w,i)=>{
-        const c = getCheck(s.id, month, i);
-        const l = effectiveLineup(s.id, month, i);
-        const lClass = l?`lineup-${l==='가능'?'가능':l==='조건부'?'조건부':'제외'}`:'';
-        return `
-          <div class="border border-gray-100 rounded-lg p-2 ${canEdit?'cursor-pointer hover:bg-gray-50':''}" ${canEdit?`onclick="openCheckModal('${s.id}',${i})"`:''}>
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-xs font-semibold text-gray-600">${w.label}</span>
-              ${l?`<span class="text-xs ${lClass} px-1.5 py-0.5 rounded-full">${l}</span>`:''}
-            </div>
-            <div class="grid grid-cols-4 gap-1 text-center">
-              <div><p class="text-xs text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} text-xs px-1 rounded">${c.qt||'·'}</span></div>
-              <div><p class="text-xs text-gray-400">가테</p>${isLeaderGroup?`<span class="st-빈칸 text-xs px-1 rounded text-gray-300">-</span>`:`<span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span>`}</div>
-              <div><p class="text-xs text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} text-xs px-1 rounded">${c.sat||'·'}</span></div>
-              <div><p class="text-xs text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} text-xs px-1 rounded">${c.sun||'·'}</span></div>
-            </div>
-          </div>`;
-      }).join('');
+      const c = getCheck(s.id, month, wi);
+      const l = effectiveLineup(s.id, month, wi);
+      const lClass = l ? `lineup-${l==='가능'?'가능':l==='조건부'?'조건부':'제외'}` : '';
+      const weekCard = `
+        <div class="border border-gray-100 rounded-lg p-2 ${canEdit?'cursor-pointer hover:bg-gray-50':''}" ${canEdit?`onclick="openCheckModal('${s.id}',${wi})"`:''}>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-semibold text-gray-600">${w.label}</span>
+            ${l?`<span class="text-xs ${lClass} px-1.5 py-0.5 rounded-full">${l}</span>`:''}
+          </div>
+          <div class="grid grid-cols-4 gap-1 text-center">
+            <div><p class="text-xs text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} text-xs px-1 rounded">${c.qt||'·'}</span></div>
+            <div><p class="text-xs text-gray-400">가테</p>${isLeaderGroup?`<span class="st-빈칸 text-xs px-1 rounded text-gray-300">-</span>`:`<span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span>`}</div>
+            <div><p class="text-xs text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} text-xs px-1 rounded">${c.sat||'·'}</span></div>
+            <div><p class="text-xs text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} text-xs px-1 rounded">${c.sun||'·'}</span></div>
+          </div>
+        </div>`;
       html += `
         <div class="bg-white rounded-xl p-3 shadow-sm mb-3 group-${g}">
           <div class="flex items-center gap-2 mb-2 cursor-pointer" onclick="navigate('detail',{currentStudentId:'${s.id}'})">
@@ -2082,7 +2101,7 @@ function renderCheckCards(month, weeks) {
               <p class="text-xs text-gray-500">${s.group} · ${s.grade||''}</p>
             </div>
           </div>
-          <div class="grid grid-cols-1 gap-1">${weekCards}</div>
+          <div>${weekCard}</div>
         </div>`;
     });
   });
