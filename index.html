@@ -2,10 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>수영로고 LADI 찬양팀</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
   * { -webkit-tap-highlight-color: transparent; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -36,12 +37,21 @@
   .lineup-무단 { background:#FEE2E2; color:#7C2D12; font-weight:700; }
   .lineup-확인필요 { background:#F3E8FF; color:#7C3AED; font-weight:700; }
   .nav-btn.active { color: #7C3AED; }
+  .restricted-chip { filter: grayscale(1); opacity: 0.45; }
+  .love-photo-thumb { width:72px; height:72px; object-fit:cover; border-radius:8px; }
+  #qr-video { width:100%; max-width:340px; border-radius:12px; }
+  #qr-scan-overlay { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:200px; height:200px; border:3px solid #7C3AED; border-radius:12px; pointer-events:none; }
+  nav { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .nav-btn.active svg { stroke: #7C3AED; }
   .check-cell { min-width: 48px; text-align: center; padding: 4px 2px; font-size: 12px; border-radius: 4px; cursor: pointer; user-select: none; }
   .scroll-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table th, table td { white-space: nowrap; }
   .birthday-today { border: 2px solid #EC4899; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+  #kakao-banner { display:none; background:#FEF3C7; border-bottom:1px solid #FDE68A; padding:10px 16px; font-size:13px; color:#92400E; text-align:center; position:fixed; top:0; left:0; right:0; z-index:200; }
+  #kakao-banner.show { display:block; }
+  body.has-kakao-banner header { top: 48px; }
+  body.has-kakao-banner main { padding-top: calc(3.5rem + 48px); }
   #login-screen { display:flex; }
   .pin-input { letter-spacing: 0.5em; font-size: 1.5rem; text-align:center; }
   .no-edit { pointer-events:none; }
@@ -55,6 +65,13 @@
 </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+
+<!-- KakaoTalk In-App Browser Banner -->
+<div id="kakao-banner">
+  ⚠️ 카카오톡 인앱 브라우저에서는 카메라(QR 출석)가 제한됩니다.
+  <button onclick="openExternalBrowser()" style="margin-left:8px;background:#D97706;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:bold;cursor:pointer;">외부 브라우저로 열기</button>
+  <button onclick="dismissKakaoBanner()" style="margin-left:4px;background:none;border:none;font-size:16px;cursor:pointer;color:#92400E;vertical-align:middle;">×</button>
+</div>
 
 <!-- Header -->
 <header class="bg-purple-700 text-white px-4 py-3 fixed top-0 left-0 right-0 z-50 shadow-md">
@@ -146,6 +163,11 @@
     <div id="qr-content"></div>
   </div>
 
+  <!-- ==================== 사랑 모임 ==================== -->
+  <div id="page-love" class="page p-4">
+    <div id="love-content"></div>
+  </div>
+
   <!-- ==================== QT 제출 ==================== -->
   <div id="page-qt" class="page p-4">
     <div id="qt-submit-content"></div>
@@ -179,6 +201,14 @@
     <button class="nav-btn flex flex-col items-center py-1 px-3" onclick="navigate('lineup')" id="nav-lineup">
       <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       <span class="text-xs mt-0.5 font-medium text-gray-500">라인업</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center py-1 px-2" onclick="navigate('qr')" id="nav-qr">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><path d="M17 17h3v3"/><path d="M14 20h3"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">QR</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center py-1 px-2" onclick="navigate('love')" id="nav-love">
+      <svg class="w-6 h-6 stroke-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <span class="text-xs mt-0.5 font-medium text-gray-500">사랑모임</span>
     </button>
   </div>
 </nav>
@@ -260,6 +290,14 @@
       <div>
         <label class="text-xs text-gray-500 font-semibold mb-1 block">메모</label>
         <textarea id="inp-memo" rows="2" placeholder="특이사항"></textarea>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">권한</label>
+        <select id="inp-admin-level">
+          <option value="member">일반 팀원</option>
+          <option value="leader">팀장</option>
+          <option value="admin">관리자</option>
+        </select>
       </div>
     </div>
     <div class="p-4 border-t flex gap-2">
@@ -401,6 +439,114 @@
     <div class="p-4 border-t flex gap-2">
       <button onclick="doChangePIN()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold text-sm">변경</button>
       <button onclick="closeModal('modal-pin')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold text-sm">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pastoral Approval Modal -->
+<div id="modal-pastoral" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">목양적 승인</h3>
+      <button onclick="closeModal('modal-pastoral')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <!-- Step 1 -->
+    <div id="pastoral-step1" class="p-4 space-y-3">
+      <div class="bg-yellow-50 rounded-xl p-3">
+        <p class="text-sm font-bold text-yellow-800 mb-1">⚠️ <span id="pastoral-name"></span>님 라인업 기준 미충족</p>
+        <p class="text-xs text-yellow-700" id="pastoral-restrictions"></p>
+      </div>
+      <p class="text-sm text-gray-700">이 팀원은 이번 주 라인업 기준을 충족하지 못했습니다.<br>그래도 <strong>목양적 판단</strong>에 따라 세우시겠습니까?</p>
+      <div class="flex gap-2">
+        <button onclick="pastoralStep1Confirm()" class="flex-1 bg-yellow-500 text-white py-3 rounded-xl font-bold">예, 계속</button>
+        <button onclick="closeModal('modal-pastoral')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">아니오</button>
+      </div>
+    </div>
+    <!-- Step 2 -->
+    <div id="pastoral-step2" class="p-4 space-y-3" style="display:none">
+      <div class="bg-red-50 rounded-xl p-3">
+        <p class="text-sm text-red-700 font-semibold">이 결정은 팀장의 목양적 책임으로 기록됩니다.</p>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">승인 사유 <span class="text-red-500">*</span></label>
+        <textarea id="pastoral-reason" rows="3" placeholder="목양적 판단 사유를 입력해 주세요..." class="w-full border rounded-xl p-3 text-sm"></textarea>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="pastoralStep2Confirm()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold">승인 완료</button>
+        <button onclick="closeModal('modal-pastoral')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Love Meeting Add/Edit Modal -->
+<div id="modal-love-meeting" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4 max-h-[85vh] overflow-y-auto">
+    <div class="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
+      <h3 class="font-bold text-gray-800" id="modal-love-meeting-title">사랑 모임 추가</h3>
+      <button onclick="closeModal('modal-love-meeting')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <input type="hidden" id="love-meeting-id">
+      <div><label class="text-xs text-gray-500 font-semibold mb-1 block">모임 이름 *</label><input type="text" id="lm-name" placeholder="예: 하늘 사랑 모임"></div>
+      <div><label class="text-xs text-gray-500 font-semibold mb-1 block">사랑 모임장</label>
+        <select id="lm-leader">
+          <option value="">선택</option>
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1"><label class="text-xs text-gray-500 font-semibold mb-1 block">모임 요일</label>
+          <select id="lm-day"><option>월</option><option>화</option><option>수</option><option>목</option><option>금</option><option>토</option><option>주일</option></select>
+        </div>
+        <div class="flex-1"><label class="text-xs text-gray-500 font-semibold mb-1 block">모임 시간</label><input type="time" id="lm-time" value="19:00"></div>
+      </div>
+      <div><label class="text-xs text-gray-500 font-semibold mb-1 block">장소</label><input type="text" id="lm-location" placeholder="모임 장소"></div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">사랑원 선택</label>
+        <div id="lm-members-list" class="grid grid-cols-3 gap-1 max-h-40 overflow-y-auto border rounded-xl p-2"></div>
+      </div>
+      <div><label class="text-xs text-gray-500 font-semibold mb-1 block">비고</label><textarea id="lm-note" rows="2" placeholder="특이사항"></textarea></div>
+    </div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="saveLoveMeeting()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold">저장</button>
+      <button onclick="closeModal('modal-love-meeting')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Love Record Modal -->
+<div id="modal-love-record" class="modal">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
+      <h3 class="font-bold text-gray-800" id="modal-love-record-title">모임 기록</h3>
+      <button onclick="closeModal('modal-love-record')" class="text-gray-400 text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <input type="hidden" id="lr-meeting-id">
+      <input type="hidden" id="lr-week-key">
+      <div><label class="text-xs text-gray-500 font-semibold mb-1 block">모임 날짜</label><input type="date" id="lr-date"></div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">나눔 주제</label>
+        <input type="text" id="lr-topic" placeholder="이번 주 나눔 주제">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">출석 체크</label>
+        <div id="lr-attendance-list" class="space-y-1"></div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">기도제목</label>
+        <div id="lr-prayer-list" class="space-y-2"></div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-semibold mb-1 block">대표 사진</label>
+        <input type="file" id="lr-photo" accept="image/*" onchange="lrPhotoPreview(this)" class="text-xs">
+        <div id="lr-photo-preview" class="mt-2"></div>
+      </div>
+      <div><label class="text-xs text-gray-500 font-semibold mb-1 block">팀장 메모</label><textarea id="lr-memo" rows="2" placeholder="메모"></textarea></div>
+    </div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="saveLoveRecord()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold">저장</button>
+      <button onclick="closeModal('modal-love-record')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
     </div>
   </div>
 </div>
@@ -636,6 +782,13 @@ let state = {
   currentStudentId: null,
   qrType: '토요일',
   editCheckKey: null,
+  pastoralApprovals: {},
+  adminRestrictions: {},
+  editLogs: [],
+  lineupConfirmed: {},
+  loveMeetings: [],
+  loveMeetingRecords: {},
+  qrUsage: {},
 };
 
 let tempCheck = {};
@@ -660,6 +813,13 @@ function loadState() {
   if (!state.qtPosts) state.qtPosts = [];
   if (!state.qtComments) state.qtComments = [];
   if (!state.qtDayChecks) state.qtDayChecks = {};
+  if (!state.pastoralApprovals) state.pastoralApprovals = {};
+  if (!state.adminRestrictions) state.adminRestrictions = {};
+  if (!state.editLogs) state.editLogs = [];
+  if (!state.loveMeetings) state.loveMeetings = [];
+  if (!state.loveMeetingRecords) state.loveMeetingRecords = {};
+  if (!state.qrUsage) state.qrUsage = {};
+  if (!state.lineupConfirmed) state.lineupConfirmed = {};
   // migrate lineupService for existing students
   state.students.forEach(s => { if (!s.lineupService) s.lineupService = '1부'; });
   // migrate student roles
@@ -667,6 +827,17 @@ function loadState() {
     const roleFixes = { t1: { role: '인도자 / 목사' }, t2: { role: '팀장' }, t5: { role: '워십 / 팀장' } };
     state.students.forEach(s => { if (roleFixes[s.id]) Object.assign(s, roleFixes[s.id]); });
     state._roleMigrated = true;
+  }
+  // migrate adminLevel (3-tier: admin / leader / member)
+  if (!state._adminLevelMigrated) {
+    state.students.forEach(s => {
+      if (!s.adminLevel) {
+        if (s.id === 't1') s.adminLevel = 'admin';
+        else if (s.group === '팀장') s.adminLevel = 'leader';
+        else s.adminLevel = 'member';
+      }
+    });
+    state._adminLevelMigrated = true;
   }
   // gate '.' and '' → 'O' for weeks with existing data
   if (!state._gateMigrated) {
@@ -690,6 +861,14 @@ function saveState() {
     qtDayChecks: state.qtDayChecks,
     _gateMigrated: state._gateMigrated,
     _roleMigrated: state._roleMigrated,
+    _adminLevelMigrated: state._adminLevelMigrated,
+    pastoralApprovals: state.pastoralApprovals,
+    adminRestrictions: state.adminRestrictions,
+    editLogs: state.editLogs,
+    loveMeetings: state.loveMeetings,
+    loveMeetingRecords: state.loveMeetingRecords,
+    qrUsage: state.qrUsage,
+    lineupConfirmed: state.lineupConfirmed,
   }));
 }
 
@@ -742,14 +921,25 @@ function getWeekPassages(satDateStr) {
 // ==========================================
 // AUTH
 // ==========================================
-function isAdmin() {
-  if (!state.currentUser) return false;
+function getUserRole() {
+  if (!state.currentUser) return null;
   const u = state.students.find(s => s.id === state.currentUser);
-  return u && u.group === '팀장';
+  if (!u) return null;
+  return u.adminLevel || (u.group === '팀장' ? 'leader' : 'member');
 }
+function isAdmin()  { return getUserRole() === 'admin'; }
+function isLeader() { const r = getUserRole(); return r === 'admin' || r === 'leader'; }
+function isMember() { return getUserRole() === 'member'; }
 
 function getCurrentUser() {
   return state.students.find(s => s.id === state.currentUser) || null;
+}
+
+function getRoleLabel() {
+  const r = getUserRole();
+  if (r === 'admin') return '관리자';
+  if (r === 'leader') return '팀장';
+  return '팀원';
 }
 
 function doLogin() {
@@ -769,6 +959,7 @@ function doLogin() {
     errEl.classList.add('hidden');
     document.getElementById('login-pin').value = '';
     updateHeaderUser();
+    updateNav();
     navigate('dashboard');
   } else {
     errEl.textContent = 'PIN 번호가 올바르지 않습니다';
@@ -804,10 +995,18 @@ function updateHeaderUser() {
   document.getElementById('header-user-name').textContent = u ? u.name : '';
 }
 
+function updateNav() {
+  const member = isMember();
+  const studentsBtn = document.getElementById('nav-students');
+  if (studentsBtn) studentsBtn.style.display = member ? 'none' : '';
+  const lineupBtn = document.getElementById('nav-lineup');
+  if (lineupBtn) lineupBtn.style.display = member ? 'none' : '';
+}
+
 function showUserMenu() {
   const u = getCurrentUser();
   document.getElementById('user-menu-name').textContent = u ? u.name : '';
-  document.getElementById('user-menu-role').textContent = u ? `${u.group}${u.role ? ' · '+u.role : ''}` : '';
+  document.getElementById('user-menu-role').textContent = u ? `${getRoleLabel()} · ${u.group}${u.role ? ' · '+u.role : ''}` : '';
   openModal('modal-user-menu');
 }
 
@@ -836,8 +1035,8 @@ const TODAY_STR = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(
 
 function formatBirthDate(bd) {
   if (!bd) return '';
-  const [y,m,d] = bd.split('-');
-  return `${y}.${m}.${d}`;
+  const [,m,d] = bd.split('-');
+  return `${parseInt(m)}월 ${parseInt(d)}일`;
 }
 
 function getMonthWeeks(ym) {
@@ -972,6 +1171,16 @@ function monthName(ym) {
 // NAVIGATION
 // ==========================================
 function navigate(page, extra) {
+  // Route guards for regular members
+  if (isMember()) {
+    if (page === 'students') return;
+    if (page === 'lineup') return;
+    if (page === 'detail') {
+      const targetId = (extra && extra.currentStudentId) || state.currentStudentId;
+      if (targetId && targetId !== state.currentUser) return;
+    }
+  }
+  if (state.page === 'qr' && page !== 'qr') stopQRCamera();
   state.page = page;
   if (extra) Object.assign(state, extra);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -988,6 +1197,8 @@ function navigate(page, extra) {
   else if (page==='lineup') renderLineup();
   else if (page==='qt') renderQTSubmit();
   else if (page==='detail') renderDetail(state.currentStudentId);
+  else if (page==='qr') renderQRScanPage();
+  else if (page==='love') renderLoveMeeting();
   window.scrollTo(0,0);
 }
 
@@ -995,6 +1206,7 @@ function navigate(page, extra) {
 // DASHBOARD
 // ==========================================
 function renderDashboard() {
+  if (isMember()) { renderMemberDashboard(); return; }
   const month = state.month;
   const allStudents = activeStudents();
   const totalMembers = allStudents.filter(s=>s.group!=='팀장').length;
@@ -1044,13 +1256,168 @@ function renderDashboard() {
           </div>
         </div>` : ''}
 
+      ${renderAdminStats()}
+
       <div class="bg-white rounded-2xl p-4 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-3">빠른 메뉴</p>
         <div class="grid grid-cols-2 gap-3">
           <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📖 말씀 큐티</button>
           <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업</button>
           <button onclick="navigate('check')" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">📋 체크표</button>
+          <button onclick="navigate('love')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">💛 사랑 모임</button>
+        </div>
+      </div>
+
+      ${renderEditLogPanel()}
+    </div>
+  `;
+  document.getElementById('dashboard-content').innerHTML = html;
+}
+
+function renderAdminStats() {
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const members = activeStudents().filter(s => s.group !== '팀장');
+  if (!members.length) return '';
+
+  // This month attendance rates
+  let satTotal=0, satOk=0, sunTotal=0, sunOk=0, qtTotal=0, qtOk=0;
+  members.forEach(s => {
+    weeks.forEach((w,i) => {
+      const c = getCheck(s.id, month, i);
+      if (c.sat !== '') { satTotal++; if (c.sat==='O') satOk++; }
+      if (c.sun !== '') { sunTotal++; if (c.sun==='O'||c.sun==='지각') sunOk++; }
+      if (c.qt !== '' && c.qt !== 'X') { qtTotal++; if (parseInt(c.qt)>=4) qtOk++; }
+    });
+  });
+
+  const lastIdx = weeks.length - 1;
+  const lateThisWeek = members.filter(s => getCheck(s.id, month, lastIdx).sun === '지각').map(s => s.name);
+  const absentThisWeek = members.filter(s => getCheck(s.id, month, lastIdx).sun === '결석').map(s => s.name);
+  const qtMissThisWeek = members.filter(s => {
+    const c = getCheck(s.id, month, lastIdx);
+    return c.qt !== '' && c.qt !== 'X' && parseInt(c.qt) < 4;
+  }).map(s => s.name);
+
+  const lovePhotoRate = (() => {
+    if (!state.loveMeetings.length) return null;
+    const wKey = `${month}_w${lastIdx}`;
+    const uploaded = state.loveMeetings.filter(m => state.loveMeetingRecords[`${m.id}_${wKey}`]?.photos?.length > 0).length;
+    return Math.round(uploaded / state.loveMeetings.length * 100);
+  })();
+
+  return `
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+      <p class="text-xs text-gray-500 font-semibold mb-3">📊 이번달 통계</p>
+      <div class="grid grid-cols-3 gap-2 text-center mb-3">
+        <div class="bg-blue-50 rounded-xl p-2">
+          <p class="text-lg font-bold text-blue-700">${satTotal ? Math.round(satOk/satTotal*100) : '-'}%</p>
+          <p class="text-xs text-gray-500">토요일 출석</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-2">
+          <p class="text-lg font-bold text-purple-700">${sunTotal ? Math.round(sunOk/sunTotal*100) : '-'}%</p>
+          <p class="text-xs text-gray-500">주일 출석</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-2">
+          <p class="text-lg font-bold text-green-700">${qtTotal ? Math.round(qtOk/qtTotal*100) : '-'}%</p>
+          <p class="text-xs text-gray-500">QT 4회↑</p>
+        </div>
+      </div>
+      ${lovePhotoRate !== null ? `<div class="bg-pink-50 rounded-xl p-2 text-center mb-3"><p class="text-sm font-bold text-pink-700">사랑모임 사진 업로드 ${lovePhotoRate}%</p></div>` : ''}
+      ${lateThisWeek.length ? `<div class="text-xs text-yellow-700 bg-yellow-50 rounded-lg p-2 mb-1">⚠️ 이번 주 지각: ${lateThisWeek.join(', ')}</div>` : ''}
+      ${absentThisWeek.length ? `<div class="text-xs text-red-700 bg-red-50 rounded-lg p-2 mb-1">❌ 이번 주 결석: ${absentThisWeek.join(', ')}</div>` : ''}
+      ${qtMissThisWeek.length ? `<div class="text-xs text-orange-700 bg-orange-50 rounded-lg p-2">📖 QT 4회 미달: ${qtMissThisWeek.join(', ')}</div>` : ''}
+    </div>`;
+}
+
+function renderEditLogPanel() {
+  if (!isAdmin()) return '';
+  const recentLogs = (state.editLogs||[]).slice(0, 10);
+  if (!recentLogs.length) return '';
+  const rows = recentLogs.map(l => {
+    const d = new Date(l.timestamp);
+    const ts = `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const typeLabel = l.type==='check'?'체크':l.type==='pastoral_approval'?'목양승인':'기타';
+    return `<div class="flex items-start gap-2 py-1.5 border-b border-gray-50 last:border-0">
+      <span class="text-xs text-gray-400 min-w-16">${ts}</span>
+      <div class="text-xs text-gray-600 flex-1">
+        <span class="font-semibold text-gray-800">${l.editorName}</span>이
+        <span class="text-purple-600">${l.targetName}</span>
+        ${typeLabel} 수정 ${l.field&&l.field!=='-'?`(${l.field}: ${l.before}→${l.after})`:''}
+        ${l.reason?`<span class="text-gray-400">· ${l.reason.slice(0,20)}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+      <p class="text-xs text-gray-500 font-semibold mb-2">🗒️ 최근 수정 로그</p>
+      ${rows}
+    </div>`;
+}
+
+function renderMemberDashboard() {
+  const me = getCurrentUser();
+  if (!me) return;
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const stats = calcStats(me.id, month);
+  const todayBirthdays = activeStudents().filter(s => isToday(s.birthDate));
+
+  const weekRows = weeks.map((w,i) => {
+    const c = getCheck(me.id, month, i);
+    const l = effectiveLineup(me.id, month, i);
+    const lClass = l ? `lineup-${l==='가능'?'가능':l==='조건부'?'조건부':l==='무단'?'무단':'제외'}` : '';
+    return `
+      <div class="border-b border-gray-100 py-2 last:border-0">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-semibold text-gray-600">${w.label} <span class="text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
+          ${l ? `<span class="text-xs px-2 py-0.5 rounded-full ${lClass}">${l}</span>` : ''}
+        </div>
+        <div class="grid grid-cols-4 gap-1 text-center text-xs">
+          <div><p class="text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} px-1.5 py-0.5 rounded">${c.qt||'-'}</span></div>
+          <div><p class="text-gray-400">가테</p><span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} px-1.5 py-0.5 rounded">${c.gate||'-'}</span></div>
+          <div><p class="text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} px-1.5 py-0.5 rounded">${c.sat||'-'}</span></div>
+          <div><p class="text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} px-1.5 py-0.5 rounded">${c.sun||'-'}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const html = `
+    <div class="space-y-4">
+      ${todayBirthdays.length ? `
+        <div class="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-4 text-white">
+          <p class="text-xs opacity-80 font-semibold mb-1">🎂 오늘의 생일자</p>
+          <p class="text-xl font-bold">${todayBirthdays.map(s=>s.name).join(', ')}</p>
+          <p class="text-xs opacity-80 mt-1">생일 축하해요! 🎉</p>
+        </div>` : ''}
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-12 h-12 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 font-bold text-lg">${me.name[0]}</div>
+          <div>
+            <p class="font-bold text-gray-800">${me.name}</p>
+            <p class="text-xs text-gray-500">${me.group} · ${me.grade||''}</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          ${stats.satRate!==null?`<div class="bg-blue-50 rounded-xl p-2"><p class="text-lg font-bold text-blue-700">${stats.satRate}%</p><p class="text-xs text-gray-500">토요일 출석</p></div>`:''}
+          ${stats.sunRate!==null?`<div class="bg-purple-50 rounded-xl p-2"><p class="text-lg font-bold text-purple-700">${stats.sunRate}%</p><p class="text-xs text-gray-500">주일 출석</p></div>`:''}
+          ${stats.qtAvg!==null?`<div class="bg-green-50 rounded-xl p-2"><p class="text-lg font-bold text-green-700">${stats.qtAvg}</p><p class="text-xs text-gray-500">QT 평균</p></div>`:''}
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-2">${monthName(month)} 내 기록</p>
+        ${weekRows}
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-3">빠른 메뉴</p>
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📖 말씀 큐티</button>
+          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업</button>
           <button onclick="navigate('birthday')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">🎂 생일</button>
+          <button onclick="navigate('detail',{currentStudentId:'${me.id}'})" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">👤 내 프로필</button>
         </div>
       </div>
     </div>
@@ -1062,6 +1429,11 @@ function renderDashboard() {
 // STUDENTS
 // ==========================================
 function renderStudents() {
+  if (isMember()) {
+    document.getElementById('student-list').innerHTML = '<p class="text-center text-gray-400 py-8">접근 권한이 없습니다</p>';
+    document.getElementById('btn-add-student').style.display = 'none';
+    return;
+  }
   const group = state.currentGroup || '전체';
   let filtered = state.students;
   if (group !== '전체') filtered = filtered.filter(s=>s.group===group);
@@ -1104,7 +1476,7 @@ function renderStudents() {
                     </div>` : ''}
                   </div>
                   <div class="flex flex-col gap-1">
-                    ${s.phone ? `<a href="tel:${s.phone}" onclick="event.stopPropagation()" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-center">📞</a>` : ''}
+                    ${(isLeader() && s.phone) ? `<a href="tel:${s.phone}" onclick="event.stopPropagation()" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-center">📞</a>` : ''}
                     ${isAdmin() ? `<button onclick="event.stopPropagation();openEditStudent('${s.id}')" class="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-lg">수정</button>` : ''}
                   </div>
                 </div>
@@ -1169,10 +1541,14 @@ function renderDetail(id) {
           </div>
         </div>
         ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
-        ${isAdmin() ? `<button onclick="openCheckModal('${s.id}',${i})" class="mt-2 text-xs text-purple-600 underline">수정</button>` : ''}
+        ${isLeader() ? `<button onclick="openCheckModal('${s.id}',${i})" class="mt-2 text-xs text-purple-600 underline">수정</button>` : ''}
       </div>
     `;
   }).join('');
+
+  const canSeeSensitive = isLeader();
+  const canEdit = isAdmin();
+  const isOwnProfile = s.id === state.currentUser;
 
   const html = `
     <div class="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
@@ -1183,7 +1559,7 @@ function renderDetail(id) {
             <h2 class="text-xl font-bold text-gray-800">${s.name}</h2>
             <span class="badge-${s.group} text-xs px-2 py-0.5 rounded-full font-semibold">${s.group}</span>
           </div>
-          <p class="text-sm text-gray-600">${s.gender} · ${s.grade||''} ${s.birthDate ? '· 생일 '+formatBirthDate(s.birthDate):''}</p>
+          <p class="text-sm text-gray-600">${s.gender} · ${s.grade||''}</p>
           <div class="flex flex-wrap gap-1 mt-1">
             <span class="text-xs ${s.status==='활동중'?'bg-green-100 text-green-700':s.status==='군복무'?'bg-green-200 text-green-800':'bg-gray-100 text-gray-600'} px-2 py-0.5 rounded-full">${s.status==='군복무'?'🪖 군복무':s.status}</span>
             ${s.role ? s.role.split(' / ').map(r=>roleBadge(r)).join('') : ''}
@@ -1193,15 +1569,15 @@ function renderDetail(id) {
         </div>
       </div>
       <div class="p-4 space-y-3">
-        ${s.phone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">학생 연락처</span><a href="tel:${s.phone}" class="text-sm text-blue-600 font-semibold">${s.phone}</a></div>` : ''}
-        ${s.parentPhone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">보호자 연락처</span><a href="tel:${s.parentPhone}" class="text-sm text-blue-600 font-semibold">${s.parentPhone}</a></div>` : ''}
+        ${canSeeSensitive && s.phone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">학생 연락처</span><a href="tel:${s.phone}" class="text-sm text-blue-600 font-semibold">${s.phone}</a></div>` : ''}
+        ${canSeeSensitive && s.parentPhone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">보호자 연락처</span><a href="tel:${s.parentPhone}" class="text-sm text-blue-600 font-semibold">${s.parentPhone}</a></div>` : ''}
         ${s.teacher ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">담당 교사</span><span class="text-sm font-semibold">${s.teacher}</span></div>` : ''}
-        ${s.memo ? `<div class="bg-yellow-50 rounded-xl p-3 text-sm text-gray-700">📝 ${s.memo}</div>` : ''}
+        ${(canSeeSensitive || isOwnProfile) && s.memo ? `<div class="bg-yellow-50 rounded-xl p-3 text-sm text-gray-700">📝 ${s.memo}</div>` : ''}
       </div>
       <div class="border-t flex">
-        ${isAdmin() ? `<button onclick="openEditStudent('${s.id}')" class="flex-1 py-3 text-sm text-purple-700 font-semibold border-r">정보 수정</button>` : ''}
-        ${s.phone ? `<a href="tel:${s.phone}" class="flex-1 py-3 text-sm text-blue-700 font-semibold text-center ${isAdmin()?'border-r':''}">📞 전화</a>` : ''}
-        ${isAdmin() ? `<button onclick="openMemoModal('student_${s.id}')" class="flex-1 py-3 text-sm text-gray-700 font-semibold">📝 메모</button>` : ''}
+        ${canEdit ? `<button onclick="openEditStudent('${s.id}')" class="flex-1 py-3 text-sm text-purple-700 font-semibold border-r">정보 수정</button>` : ''}
+        ${canSeeSensitive && s.phone ? `<a href="tel:${s.phone}" class="flex-1 py-3 text-sm text-blue-700 font-semibold text-center ${canEdit?'border-r':''}">📞 전화</a>` : ''}
+        ${canEdit ? `<button onclick="openMemoModal('student_${s.id}')" class="flex-1 py-3 text-sm text-gray-700 font-semibold">📝 메모</button>` : ''}
       </div>
     </div>
 
@@ -1257,6 +1633,7 @@ function renderCheckTable() {
 }
 
 function renderCheckTableView(month, weeks) {
+  if (isMember()) { renderMemberCheckView(month, weeks); return; }
   const students = state.students.filter(s=>s.status==='활동중');
   const groups = ['팀장','솔라디','라디스','액기스'];
 
@@ -1286,23 +1663,23 @@ function renderCheckTableView(month, weeks) {
     if(!gs.length) return;
     rows += `<tr><td colspan="${2+weeks.length*4}" class="group-${g} px-3 py-1 text-xs font-bold text-gray-700 border-t-2 border-gray-300">${g} (${gs.length}명)</td></tr>`;
     gs.forEach(s=>{
-      const admin = isAdmin();
+      const canEdit = isLeader();
       rows += `<tr class="hover:bg-gray-50 group-${g}" style="opacity:0.95">
         <td class="sticky left-0 px-3 py-2 font-semibold text-sm text-gray-800 group-${g} cursor-pointer" onclick="navigate('detail',{currentStudentId:'${s.id}'})">${s.name}</td>
         <td class="px-1 py-2"><span class="badge-${g} text-xs px-1 py-0.5 rounded font-semibold">${g[0]}</span></td>`;
       weeks.forEach((w,i)=>{
         const c = getCheck(s.id, month, i);
-        const isLeader = g === '팀장';
-        const clickQT  = admin ? `onclick="openCheckModal('${s.id}',${i},'qt')"` : '';
-        const clickGate= admin ? `onclick="openCheckModal('${s.id}',${i},'gate')"` : '';
-        const clickSat = admin ? `onclick="openCheckModal('${s.id}',${i},'sat')"` : '';
-        const clickSun = admin ? `onclick="openCheckModal('${s.id}',${i},'sun')"` : '';
+        const isLeaderGroup = g === '팀장';
+        const clickQT  = canEdit ? `onclick="openCheckModal('${s.id}',${i},'qt')"` : '';
+        const clickGate= canEdit ? `onclick="openCheckModal('${s.id}',${i},'gate')"` : '';
+        const clickSat = canEdit ? `onclick="openCheckModal('${s.id}',${i},'sat')"` : '';
+        const clickSun = canEdit ? `onclick="openCheckModal('${s.id}',${i},'sun')"` : '';
         rows += `
           <td class="px-0.5 py-1 border-l border-gray-100">
             <div class="check-cell qt-${c.qt||'빈칸'}" ${clickQT}>${c.qt||'·'}</div>
           </td>
           <td class="px-0.5 py-1">
-            ${isLeader
+            ${isLeaderGroup
               ? `<div class="check-cell st-빈칸 no-edit text-gray-300">-</div>`
               : `<div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" ${clickGate}>${c.gate||'·'}</div>`}
           </td>
@@ -1329,7 +1706,33 @@ function renderCheckTableView(month, weeks) {
   document.getElementById('check-table-content').innerHTML = html;
 }
 
+function renderMemberCheckView(month, weeks) {
+  const me = getCurrentUser();
+  if (!me) return;
+  const html = weeks.map((w,i) => {
+    const c = getCheck(me.id, month, i);
+    const l = effectiveLineup(me.id, month, i);
+    const lClass = l ? `lineup-${l==='가능'?'가능':l==='조건부'?'조건부':l==='무단'?'무단':'제외'}` : '';
+    return `
+      <div class="bg-white rounded-xl p-3 shadow-sm mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-semibold text-sm text-gray-700">${w.label} <span class="text-xs text-gray-400">(토 ${w.satDate.slice(5)} / 주 ${w.sunDate.slice(5)})</span></span>
+          ${l ? `<span class="text-xs px-2 py-0.5 rounded-full ${lClass}">${l}</span>` : ''}
+        </div>
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div><p class="text-xs text-gray-400 mb-1">QT</p><span class="text-xs px-2 py-1 rounded-lg qt-${c.qt||'빈칸'}">${c.qt||'-'}</span></div>
+          <div><p class="text-xs text-gray-400 mb-1">가테</p><span class="text-xs px-2 py-1 rounded-lg ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}">${c.gate||'-'}</span></div>
+          <div><p class="text-xs text-gray-400 mb-1">토요일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sat?`st-${c.sat}`:'st-빈칸'}">${c.sat||'-'}</span></div>
+          <div><p class="text-xs text-gray-400 mb-1">주일</p><span class="text-xs px-2 py-1 rounded-lg ${c.sun?`st-${c.sun}`:'st-빈칸'}">${c.sun||'-'}</span></div>
+        </div>
+        ${c.memo ? `<p class="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">📝 ${c.memo}</p>` : ''}
+      </div>`;
+  }).join('');
+  document.getElementById('check-table-content').innerHTML = html || '<p class="text-center text-gray-400 py-8">데이터 없음</p>';
+}
+
 function renderCheckCards(month, weeks) {
+  if (isMember()) { renderMemberCheckView(month, weeks); return; }
   const students = state.students.filter(s=>s.status==='활동중');
   const groups = ['팀장','솔라디','라디스','액기스'];
 
@@ -1338,22 +1741,22 @@ function renderCheckCards(month, weeks) {
     const gs = students.filter(s=>s.group===g).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     if(!gs.length) return;
     html += `<div class="mb-2"><span class="badge-${g} text-xs font-bold px-3 py-1 rounded-full">${g}</span></div>`;
-    const admin = isAdmin();
+    const canEdit = isLeader();
     gs.forEach(s=>{
-      const isLeader = s.group === '팀장';
+      const isLeaderGroup = s.group === '팀장';
       const weekCards = weeks.map((w,i)=>{
         const c = getCheck(s.id, month, i);
         const l = effectiveLineup(s.id, month, i);
         const lClass = l?`lineup-${l==='가능'?'가능':l==='조건부'?'조건부':'제외'}`:'';
         return `
-          <div class="border border-gray-100 rounded-lg p-2 ${admin?'cursor-pointer hover:bg-gray-50':''}" ${admin?`onclick="openCheckModal('${s.id}',${i})"`:''}>
+          <div class="border border-gray-100 rounded-lg p-2 ${canEdit?'cursor-pointer hover:bg-gray-50':''}" ${canEdit?`onclick="openCheckModal('${s.id}',${i})"`:''}>
             <div class="flex justify-between items-center mb-1">
               <span class="text-xs font-semibold text-gray-600">${w.label}</span>
               ${l?`<span class="text-xs ${lClass} px-1.5 py-0.5 rounded-full">${l}</span>`:''}
             </div>
             <div class="grid grid-cols-4 gap-1 text-center">
               <div><p class="text-xs text-gray-400">QT</p><span class="qt-${c.qt||'빈칸'} text-xs px-1 rounded">${c.qt||'·'}</span></div>
-              <div><p class="text-xs text-gray-400">가테</p>${isLeader?`<span class="st-빈칸 text-xs px-1 rounded text-gray-300">-</span>`:`<span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span>`}</div>
+              <div><p class="text-xs text-gray-400">가테</p>${isLeaderGroup?`<span class="st-빈칸 text-xs px-1 rounded text-gray-300">-</span>`:`<span class="${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'} text-xs px-1 rounded">${c.gate||'·'}</span>`}</div>
               <div><p class="text-xs text-gray-400">토</p><span class="${c.sat?`st-${c.sat}`:'st-빈칸'} text-xs px-1 rounded">${c.sat||'·'}</span></div>
               <div><p class="text-xs text-gray-400">주일</p><span class="${c.sun?`st-${c.sun}`:'st-빈칸'} text-xs px-1 rounded">${c.sun||'·'}</span></div>
             </div>
@@ -1414,10 +1817,15 @@ function getQTDayEntry(dateStr) {
 }
 
 function getQTCurrentWeekDays() {
-  // Return Mon-Fri dates of TODAY's week
-  const d = new Date(TODAY);
-  const dow = d.getDay();
-  const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  // Find Mon-Fri of the QT week closest to today
+  const qtDates = Object.keys(QT_SCHEDULE).sort();
+  if (!qtDates.length) return [];
+  const firstQT = new Date(qtDates[0] + 'T00:00:00');
+  const lastQT = new Date(qtDates[qtDates.length - 1] + 'T00:00:00');
+  // Clamp today into QT range
+  const ref = TODAY < firstQT ? firstQT : TODAY > lastQT ? lastQT : TODAY;
+  const dow = ref.getDay();
+  const mon = new Date(ref); mon.setDate(ref.getDate() - (dow === 0 ? 6 : dow - 1));
   const days = [];
   for (let i = 0; i < 5; i++) {
     const c = new Date(mon); c.setDate(mon.getDate() + i);
@@ -1750,9 +2158,9 @@ function openCheckModal(studentId, weekIdx, focusField) {
   const c = getCheck(studentId, state.month, weekIdx);
   tempCheck = { ...c };
 
-  if (!isAdmin()) return;
+  if (!isLeader()) return;
   document.getElementById('modal-check-title').textContent = `${s?.name||''} - ${weeks[weekIdx]?.label}`;
-  const isLeader = s?.group === '팀장';
+  const isLeaderGroup = s?.group === '팀장';
 
   const body = `
     <div class="space-y-4">
@@ -1766,7 +2174,7 @@ function openCheckModal(studentId, weekIdx, focusField) {
             </button>`).join('')}
         </div>
       </div>
-      ${isLeader ? '' : `<div>
+      ${isLeaderGroup ? '' : `<div>
         <label class="text-xs font-semibold text-gray-600 block mb-2">가테</label>
         <div class="flex gap-2">
           ${[['O','통과'],['X','미완료'],['','빈칸']].map(([v,l])=>`
@@ -1853,6 +2261,14 @@ function saveCheck() {
   tempCheck.qtCopied = document.getElementById('qt-copied')?.checked || false;
   tempCheck.leaderConfirmed = document.getElementById('leader-confirmed')?.checked || false;
   tempCheck.memo = document.getElementById('check-memo')?.value || '';
+
+  const prev = getCheck(currentCheckStudentId, state.month, currentCheckWeekIdx);
+  const fields = ['qt','gate','sat','sun'];
+  fields.forEach(f => {
+    if (prev[f] !== tempCheck[f]) {
+      addEditLog('check', currentCheckStudentId, `${state.month}_w${currentCheckWeekIdx}`, f, prev[f]||'', tempCheck[f]||'', '');
+    }
+  });
 
   setCheck(currentCheckStudentId, state.month, currentCheckWeekIdx, {...tempCheck});
   closeModal('modal-check');
@@ -1978,6 +2394,21 @@ function renderLineup() {
   renderLineupSelection();
 }
 
+function getLineupRestrictions(studentId, month, weekIdx, svc) {
+  const key = `${studentId}_${month}_w${weekIdx}_${svc||'1부'}`;
+  if (state.adminRestrictions[key]) {
+    return { adminRestricted: true, eligible: false, restrictions: [state.adminRestrictions[key].reason || '관리자 제한'] };
+  }
+  const c = getCheck(studentId, month, weekIdx);
+  const restrictions = [];
+  const qt = parseInt(c.qt);
+  if (c.qt !== '' && c.qt !== 'X' && !isNaN(qt) && qt < 4) restrictions.push(`QT ${qt}/4회`);
+  if (c.gate === 'X') restrictions.push('가사 테스트 미통과');
+  if (c.sun === '지각' && !c.lateContacted) restrictions.push('5분 초과 지각 (미연락)');
+  const pastoralApproved = !!state.pastoralApprovals[key];
+  return { eligible: restrictions.length === 0, adminRestricted: false, restrictions, pastoralApproved };
+}
+
 function renderLineupSelection() {
   const month = state.month;
   const weeks = getMonthWeeks(month);
@@ -1985,47 +2416,72 @@ function renderLineupSelection() {
   const week = weeks[weekIdx];
   if (!week) { document.getElementById('lineup-weeks').innerHTML = '<p class="text-center text-gray-400 py-8">주차 정보 없음</p>'; return; }
 
-  const admin = isAdmin();
+  const canEdit = isLeader();
   const svc = lineupService;
   const groups = ['솔라디','라디스','액기스'];
 
   let totalIn = 0;
   const groupBlocks = groups.map(g => {
-    const base = activeStudents()
-      .filter(s => s.group === g && s.status !== '군복무')
-      .sort((a,b) => a.name.localeCompare(b.name, 'ko'));
-    const extraIds = LINEUP_GROUP_LEADERS[g] || [];
-    const extra = extraIds.map(id => state.students.find(s => s.id === id)).filter(Boolean);
+    const base = activeStudents().filter(s => s.group === g && s.status !== '군복무').sort((a,b) => a.name.localeCompare(b.name, 'ko'));
+    const extra = (LINEUP_GROUP_LEADERS[g]||[]).map(id => state.students.find(s => s.id === id)).filter(Boolean);
     const members = [...base, ...extra];
     if (!members.length) return '';
 
-    let gIn = 0;
+    let gIn = 0, restrictedCount = 0;
     const chips = members.map(s => {
       const key = `${s.id}_${month}_w${weekIdx}_${svc}`;
       const entry = state.lineups[key];
       const isIn = entry?.final === '가능';
       const isKeyboard = s.instrument === '건반';
       const keyRole = entry?.keyRole;
+      const restr = getLineupRestrictions(s.id, month, weekIdx, svc);
       if (isIn) { gIn++; totalIn++; }
-      let style;
-      if (isIn && isKeyboard && keyRole === '세컨') style = 'bg-blue-500 text-white shadow-sm';
-      else if (isIn) style = 'bg-green-500 text-white shadow-sm';
-      else style = 'bg-gray-100 text-gray-600 border border-gray-200';
-      const instLabel = isKeyboard && isIn
-        ? `<span class="text-xs opacity-90 ml-0.5">${keyRole}</span>`
-        : (s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : '');
-      return `<button
-        ${admin ? `onclick="toggleLineupMember('${s.id}',${weekIdx},'${svc}')"` : ''}
-        class="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${style} ${admin?'active:scale-95 cursor-pointer':'cursor-default'}">
-        ${isIn?'<span class="text-xs">✓</span>':''}${s.name}${instLabel}
-      </button>`;
+      if (!restr.eligible && !restr.pastoralApproved && !restr.adminRestricted) restrictedCount++;
+
+      let btnClass, clickAttr, inner, extraStyle = '';
+
+      if (restr.adminRestricted) {
+        btnClass = 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-30 border border-gray-200';
+        clickAttr = '';
+        inner = `🚫 ${s.name} <span class="text-xs bg-red-100 text-red-500 px-1 rounded ml-1">제한</span>`;
+      } else if (!restr.eligible && !restr.pastoralApproved) {
+        extraStyle = 'style="filter:grayscale(1);opacity:0.45"';
+        if (isIn) {
+          btnClass = 'bg-yellow-400 text-white cursor-pointer border border-yellow-500';
+          clickAttr = canEdit ? `onclick="toggleLineupMember('${s.id}',${weekIdx},'${svc}')"` : '';
+          inner = `✓ ${s.name} <span class="text-xs bg-yellow-200 text-yellow-900 px-1 rounded ml-1">목양승인</span>`;
+        } else {
+          btnClass = 'bg-gray-100 text-gray-600 border border-gray-200 cursor-pointer';
+          const rJson = JSON.stringify(restr.restrictions).replace(/"/g, '&quot;');
+          clickAttr = canEdit ? `onclick="openPastoralApproval('${s.id}',${weekIdx},'${svc}','${rJson}')"` : '';
+          inner = `⚠️ ${s.name}${s.instrument ? ` <span class="text-xs opacity-70">${s.instrument}</span>` : ''}`;
+        }
+      } else {
+        const isApproved = restr.pastoralApproved;
+        if (isIn && isKeyboard && keyRole === '세컨') btnClass = 'bg-blue-500 text-white shadow-sm cursor-pointer';
+        else if (isIn) btnClass = `bg-green-500 text-white shadow-sm cursor-pointer ${isApproved ? 'ring-2 ring-yellow-400' : ''}`;
+        else btnClass = 'bg-gray-100 text-gray-600 border border-gray-200 cursor-pointer';
+        clickAttr = canEdit ? `onclick="toggleLineupMember('${s.id}',${weekIdx},'${svc}')"` : '';
+        const instLabel = isKeyboard && isIn ? `<span class="text-xs opacity-90 ml-0.5">${keyRole}</span>` : (s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : '');
+        inner = `${isIn ? '<span class="text-xs">✓</span>' : ''}${s.name}${instLabel}${isApproved && isIn ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-1 rounded ml-1">승인</span>' : ''}`;
+      }
+
+      return `<button ${clickAttr} class="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${btnClass} ${canEdit ? 'active:scale-95' : ''}" ${extraStyle}>${inner}</button>`;
     }).join('');
 
+    const confirmKey = `${month}_w${weekIdx}_${svc}_${g}`;
+    const isConfirmed = !!state.lineupConfirmed[confirmKey];
     return `
       <div class="mb-5">
-        <div class="flex items-center gap-2 mb-2">
+        <div class="flex items-center gap-2 mb-2 flex-wrap">
           <span class="badge-${g} text-xs font-bold px-2 py-0.5 rounded-full">${g}</span>
-          <span class="text-xs text-gray-400">${gIn}/${members.length}명 선택</span>
+          <span class="text-xs text-gray-400">${gIn}/${members.length}명</span>
+          ${restrictedCount ? `<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">⚠️ ${restrictedCount}명 확인필요</span>` : ''}
+          ${isConfirmed ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✅ 최종확정</span>` : ''}
+          <button onclick="toggleLineupConfirm('${confirmKey}')"
+            class="ml-auto text-xs px-3 py-1 rounded-lg font-bold ${isConfirmed ? 'bg-gray-200 text-gray-600' : 'bg-purple-600 text-white'}">
+            ${isConfirmed ? '확정 취소' : '최종명단 확정'}
+          </button>
         </div>
         <div class="flex flex-wrap gap-2">${chips}</div>
       </div>`;
@@ -2039,13 +2495,25 @@ function renderLineupSelection() {
         </h3>
         <span class="lineup-가능 text-xs px-2 py-0.5 rounded-full">${totalIn}명 선택</span>
       </div>
-      ${admin ? '<p class="text-xs text-purple-500 mb-4">이름을 탭하면 선택 ↔ 해제</p>' : ''}
+      ${canEdit ? '<p class="text-xs text-purple-500 mb-3">탭 = 선택/해제 | ⚠️ 흐린 이름 = 목양 확인 필요 (팀장만 승인 가능)</p>' : ''}
       ${groupBlocks}
     </div>`;
 }
 
+function toggleLineupConfirm(confirmKey) {
+  if (!isLeader()) return;
+  if (state.lineupConfirmed[confirmKey]) {
+    delete state.lineupConfirmed[confirmKey];
+  } else {
+    state.lineupConfirmed[confirmKey] = { confirmedAt: Date.now(), confirmedBy: state.currentUser };
+    addEditLog(`라인업 최종확정: ${confirmKey}`);
+  }
+  saveState();
+  renderLineupSelection();
+}
+
 function toggleLineupMember(studentId, weekIdx, svc) {
-  if (!isAdmin()) return;
+  if (!isLeader()) return;
   const key = `${studentId}_${state.month}_w${weekIdx}_${svc||lineupService}`;
   const s = state.students.find(x => x.id === studentId);
   const isKeyboard = s?.instrument === '건반';
@@ -2059,6 +2527,261 @@ function toggleLineupMember(studentId, weekIdx, svc) {
   }
   saveState();
   renderLineupSelection();
+}
+
+// ==========================================
+// PASTORAL APPROVAL
+// ==========================================
+let pastoralModalData = null;
+
+function openPastoralApproval(studentId, weekIdx, svc, restrictionsJson) {
+  if (!isLeader()) return;
+  const restrictions = JSON.parse(restrictionsJson.replace(/&quot;/g, '"'));
+  pastoralModalData = { studentId, weekIdx, svc, restrictions };
+  const s = state.students.find(x => x.id === studentId);
+  document.getElementById('pastoral-name').textContent = s?.name || '';
+  document.getElementById('pastoral-restrictions').textContent = restrictions.join(' · ');
+  document.getElementById('pastoral-step1').style.display = '';
+  document.getElementById('pastoral-step2').style.display = 'none';
+  document.getElementById('pastoral-reason').value = '';
+  openModal('modal-pastoral');
+}
+
+function pastoralStep1Confirm() {
+  document.getElementById('pastoral-step1').style.display = 'none';
+  document.getElementById('pastoral-step2').style.display = '';
+}
+
+function pastoralStep2Confirm() {
+  const reason = document.getElementById('pastoral-reason').value.trim();
+  if (!reason) { alert('승인 사유를 입력해 주세요'); return; }
+  const { studentId, weekIdx, svc, restrictions } = pastoralModalData;
+  const month = state.month;
+  const key = `${studentId}_${month}_w${weekIdx}_${svc}`;
+  const me = getCurrentUser();
+  state.pastoralApprovals[key] = {
+    studentId, month, weekIdx, svc, restrictions,
+    approvedBy: state.currentUser, approvedByName: me?.name || '',
+    approvedAt: Date.now(), reason,
+  };
+  state.lineups[key] = { final: '가능', pastoralApproved: true };
+  addEditLog('pastoral_approval', studentId, `${month}_w${weekIdx}`, '-', '-', '목양적 승인', reason);
+  saveState();
+  closeModal('modal-pastoral');
+  renderLineupSelection();
+}
+
+// ==========================================
+// EDIT LOG
+// ==========================================
+function addEditLog(type, targetId, weekKey, field, before, after, reason) {
+  const me = getCurrentUser();
+  state.editLogs.unshift({
+    id: `log_${Date.now()}`,
+    editor: state.currentUser,
+    editorName: me?.name || '',
+    timestamp: Date.now(),
+    type,
+    targetId,
+    targetName: state.students.find(s => s.id === targetId)?.name || targetId,
+    weekKey,
+    field,
+    before,
+    after,
+    reason: reason || '',
+  });
+  if (state.editLogs.length > 500) state.editLogs = state.editLogs.slice(0, 500);
+}
+
+// ==========================================
+// QR SCAN PAGE
+// ==========================================
+let qrStream = null;
+let qrScanInterval = null;
+
+function isKakaoTalkBrowser() {
+  const ua = navigator.userAgent || '';
+  return /KAKAOTALK/i.test(ua) || /kakaoagent/i.test(ua);
+}
+
+function isIOSDevice() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+function openExternalBrowser() {
+  const url = encodeURIComponent(location.href);
+  // iOS KakaoTalk scheme
+  if (isIOSDevice()) {
+    location.href = 'kakaotalk://web/openExternal?url=' + url;
+  } else {
+    // Android: intent scheme or direct
+    location.href = 'intent://' + location.host + location.pathname + location.search + '#Intent;scheme=https;end';
+  }
+}
+
+function dismissKakaoBanner() {
+  document.getElementById('kakao-banner').classList.remove('show');
+  document.body.classList.remove('has-kakao-banner');
+  try { sessionStorage.setItem('kakao_banner_dismissed', '1'); } catch(e) {}
+}
+
+function initKakaoBanner() {
+  if (!isKakaoTalkBrowser()) return;
+  try { if (sessionStorage.getItem('kakao_banner_dismissed')) return; } catch(e) {}
+  document.getElementById('kakao-banner').classList.add('show');
+  document.body.classList.add('has-kakao-banner');
+}
+
+function renderQRScanPage() {
+  const canGenerate = isLeader();
+  const inKakao = isKakaoTalkBrowser();
+  document.getElementById('qr-content').innerHTML = `
+    <div class="space-y-4">
+      <h2 class="font-bold text-gray-800">QR 출석 체크</h2>
+      ${canGenerate ? `
+        <div class="bg-purple-50 rounded-xl p-3 flex items-center justify-between">
+          <span class="text-sm text-purple-700 font-semibold">QR 생성 (팀장)</span>
+          <button onclick="openQRModal()" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg font-semibold">QR 생성</button>
+        </div>` : ''}
+      ${inKakao ? `
+        <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-5 text-center shadow-sm space-y-3">
+          <div class="text-3xl">📵</div>
+          <p class="text-sm font-semibold text-yellow-800">카카오톡 인앱 브라우저에서는<br>카메라 접근이 제한됩니다</p>
+          <p class="text-xs text-yellow-700">Safari 또는 Chrome으로 열면 QR 스캔이 가능합니다.</p>
+          <button onclick="openExternalBrowser()" class="w-full bg-yellow-500 text-white py-2.5 rounded-xl text-sm font-bold">외부 브라우저로 열기</button>
+        </div>` : `
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+          <p class="text-sm font-semibold text-gray-700 mb-3">📷 QR 스캔으로 출석 체크</p>
+          <div class="relative flex justify-center">
+            <video id="qr-video" autoplay muted playsinline class="rounded-xl" style="max-width:320px;width:100%"></video>
+            <div id="qr-scan-overlay"></div>
+          </div>
+          <canvas id="qr-scan-canvas" hidden></canvas>
+          <div id="qr-scan-status" class="text-center mt-3 text-sm text-gray-500">카메라 시작 중...</div>
+          <div id="qr-scan-result" class="mt-3"></div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="startQRCamera()" class="flex-1 bg-purple-600 text-white py-2 rounded-xl text-sm font-bold">카메라 켜기</button>
+            <button onclick="stopQRCamera()" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-xl text-sm font-bold">카메라 끄기</button>
+          </div>
+        </div>`}
+      <p class="text-xs text-gray-400 text-center">로그인한 본인 계정으로 자동 출석 처리됩니다</p>
+    </div>`;
+  if (!inKakao) startQRCamera();
+}
+
+function startQRCamera() {
+  stopQRCamera();
+  if (!navigator.mediaDevices?.getUserMedia) {
+    document.getElementById('qr-scan-status').textContent = '이 브라우저는 카메라를 지원하지 않습니다';
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      qrStream = stream;
+      const video = document.getElementById('qr-video');
+      if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+      video.srcObject = stream;
+      video.play();
+      document.getElementById('qr-scan-status').textContent = 'QR 코드를 화면에 맞춰 주세요';
+      qrScanInterval = setInterval(scanQRFrame, 300);
+    })
+    .catch(() => {
+      const msg = isKakaoTalkBrowser()
+        ? '카카오톡 인앱 브라우저에서는 카메라를 사용할 수 없습니다. 외부 브라우저로 열어 주세요.'
+        : '카메라 권한이 필요합니다. 브라우저 설정에서 허용해 주세요.';
+      const el = document.getElementById('qr-scan-status');
+      if (el) el.textContent = msg;
+    });
+}
+
+function stopQRCamera() {
+  if (qrScanInterval) { clearInterval(qrScanInterval); qrScanInterval = null; }
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  const v = document.getElementById('qr-video');
+  if (v) { v.srcObject = null; }
+}
+
+function scanQRFrame() {
+  const video = document.getElementById('qr-video');
+  const canvas = document.getElementById('qr-scan-canvas');
+  if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  if (typeof jsQR === 'undefined') return;
+  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+  if (code) processScannedQR(code.data);
+}
+
+function processScannedQR(qrData) {
+  stopQRCamera();
+  const resultEl = document.getElementById('qr-scan-result');
+  const statusEl = document.getElementById('qr-scan-status');
+  if (!state.currentUser) { if (statusEl) statusEl.textContent = '먼저 로그인해 주세요'; return; }
+
+  let data;
+  try {
+    const urlParams = new URL(qrData).searchParams;
+    const token = urlParams.get('qr');
+    if (!token) throw new Error('invalid');
+    data = JSON.parse(atob(token));
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = '<p class="text-center text-red-600 font-semibold py-2">유효하지 않은 QR 코드입니다</p>';
+    return;
+  }
+
+  const now = new Date();
+  const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const nowDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  if (data.date !== nowDate) {
+    if (resultEl) resultEl.innerHTML = '<p class="text-center text-red-600 font-semibold py-2">오늘 날짜의 QR코드가 아닙니다</p>';
+    return;
+  }
+  if (nowTime > data.end) {
+    if (resultEl) resultEl.innerHTML = `<p class="text-center text-red-600 font-semibold py-2">출석 시간 종료 (마감: ${data.end})</p>`;
+    return;
+  }
+  if (nowTime < data.start) {
+    if (resultEl) resultEl.innerHTML = `<p class="text-center text-yellow-600 font-semibold py-2">아직 출석 시간이 아닙니다 (시작: ${data.start})</p>`;
+    return;
+  }
+
+  const tokenKey = `${state.currentUser}_${data.ts}`;
+  if (state.qrUsage[tokenKey]) {
+    if (resultEl) resultEl.innerHTML = '<p class="text-center text-orange-600 font-semibold py-2">이미 출석 처리되었습니다</p>';
+    return;
+  }
+
+  const isLate = nowTime > data.late;
+  const ym = data.date.slice(0, 7);
+  const weeks = getMonthWeeks(ym);
+  const weekIdx = weeks.findIndex(w => w.satDate === data.date || w.sunDate === data.date);
+  if (weekIdx < 0) {
+    if (resultEl) resultEl.innerHTML = '<p class="text-center text-red-600 font-semibold py-2">날짜를 찾을 수 없습니다</p>';
+    return;
+  }
+
+  const field = data.type === '토요일' ? 'sat' : 'sun';
+  const c = getCheck(state.currentUser, ym, weekIdx);
+  c[field] = isLate ? '지각' : 'O';
+  if (isLate && data.type === '주일') c.arrivalTime = nowTime;
+  setCheck(state.currentUser, ym, weekIdx, c);
+
+  state.qrUsage[tokenKey] = { timestamp: Date.now(), userId: state.currentUser };
+  saveState();
+
+  const me = getCurrentUser();
+  if (resultEl) resultEl.innerHTML = `
+    <div class="text-center py-4">
+      <div class="text-5xl mb-2">✅</div>
+      <p class="font-bold text-green-700 text-lg">${me?.name}님 ${data.type} ${isLate ? '지각' : '출석'} 완료!</p>
+      <p class="text-xs text-gray-500 mt-1">체크 시간: ${nowTime}</p>
+      <button onclick="navigate('dashboard')" class="mt-3 bg-purple-600 text-white px-6 py-2 rounded-xl font-bold text-sm">확인</button>
+    </div>`;
+  if (statusEl) statusEl.textContent = '';
 }
 
 // ==========================================
@@ -2101,6 +2824,275 @@ function generateQR() {
 }
 
 // ==========================================
+// 사랑 모임
+// ==========================================
+function renderLoveMeeting() {
+  if (isMember()) { renderMyLoveMeeting(); return; }
+  renderLoveMeetingAdmin();
+}
+
+function renderMyLoveMeeting() {
+  const me = getCurrentUser();
+  if (!me) return;
+  const myMeeting = state.loveMeetings.find(m => m.members && m.members.includes(me.id));
+  const el = document.getElementById('love-content');
+  if (!myMeeting) {
+    el.innerHTML = `
+      <div class="text-center py-12">
+        <p class="text-4xl mb-3">💛</p>
+        <p class="font-bold text-gray-700">아직 배정된 사랑 모임이 없어요</p>
+        <p class="text-sm text-gray-400 mt-1">팀장에게 문의해 주세요</p>
+      </div>`;
+    return;
+  }
+  const leader = state.students.find(s => s.id === myMeeting.leaderId);
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const records = weeks.map((w, i) => {
+    const wKey = `${month}_w${i}`;
+    const rec = state.loveMeetingRecords[`${myMeeting.id}_${wKey}`] || {};
+    const myAttn = rec.attendance?.[me.id] || '-';
+    const myPrayer = rec.prayers?.[me.id] || '';
+    return `
+      <div class="border-b border-gray-100 py-3 last:border-0">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-sm font-semibold text-gray-700">${w.label}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${myAttn==='O'?'st-O':myAttn==='지각'?'st-지각':myAttn==='-'?'st-빈칸':'st-결석'}">${myAttn}</span>
+        </div>
+        ${rec.topic ? `<p class="text-xs text-purple-600 mb-1">나눔: ${rec.topic}</p>` : ''}
+        ${rec.photos?.length ? `<img src="${rec.photos[0]}" class="love-photo-thumb mb-1">` : ''}
+        <div>
+          <p class="text-xs text-gray-400 font-semibold">내 기도제목</p>
+          ${myPrayer ? `<p class="text-xs text-gray-700 bg-gray-50 rounded p-1 mt-0.5">${myPrayer}</p>` :
+            `<button onclick="openMyPrayer('${myMeeting.id}','${wKey}')" class="text-xs text-purple-600 underline mt-0.5">기도제목 작성</button>`}
+        </div>
+      </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="space-y-4">
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-10 h-10 rounded-full bg-pink-200 flex items-center justify-center text-pink-800 font-bold text-lg">💛</div>
+          <div>
+            <p class="font-bold text-gray-800">${myMeeting.name}</p>
+            <p class="text-xs text-gray-500">모임장: ${leader?.name || '-'} · ${myMeeting.dayOfWeek} ${myMeeting.time}</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500">${myMeeting.location ? `📍 ${myMeeting.location}` : ''}</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-2">${monthName(month)} 모임 기록</p>
+        ${records}
+      </div>
+    </div>`;
+}
+
+function openMyPrayer(meetingId, wKey) {
+  const me = getCurrentUser();
+  if (!me) return;
+  const rec = state.loveMeetingRecords[`${meetingId}_${wKey}`] || {};
+  const prayer = rec.prayers?.[me.id] || '';
+  const text = prompt('기도제목을 입력해 주세요:', prayer);
+  if (text === null) return;
+  if (!state.loveMeetingRecords[`${meetingId}_${wKey}`]) state.loveMeetingRecords[`${meetingId}_${wKey}`] = { attendance:{}, prayers:{}, photos:[] };
+  state.loveMeetingRecords[`${meetingId}_${wKey}`].prayers = state.loveMeetingRecords[`${meetingId}_${wKey}`].prayers || {};
+  state.loveMeetingRecords[`${meetingId}_${wKey}`].prayers[me.id] = text;
+  saveState();
+  renderMyLoveMeeting();
+}
+
+function renderLoveMeetingAdmin() {
+  const el = document.getElementById('love-content');
+  const meetings = state.loveMeetings;
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const lastWeekIdx = weeks.length - 1;
+
+  const meetingCards = meetings.map(m => {
+    const leader = state.students.find(s => s.id === m.leaderId);
+    const memberNames = (m.members||[]).map(id => state.students.find(s => s.id === id)?.name).filter(Boolean);
+    const wKey = `${month}_w${lastWeekIdx}`;
+    const rec = state.loveMeetingRecords[`${m.id}_${wKey}`] || {};
+    const hasPhoto = rec.photos?.length > 0;
+    const attendCount = Object.values(rec.attendance||{}).filter(v=>v==='O').length;
+    return `
+      <div class="bg-white rounded-2xl p-4 shadow-sm mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="font-bold text-gray-800">${m.name}</p>
+            <p class="text-xs text-gray-500">모임장: ${leader?.name||'-'} · ${m.dayOfWeek} ${m.time} · ${memberNames.length}명</p>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="openEditLoveMeeting('${m.id}')" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">수정</button>
+            <button onclick="openLoveRecord('${m.id}','${month}_w${lastWeekIdx}')" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg font-semibold">기록</button>
+          </div>
+        </div>
+        <div class="flex gap-2 text-xs">
+          ${hasPhoto ? '<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-full">📷 사진 있음</span>' : '<span class="bg-red-50 text-red-500 px-2 py-0.5 rounded-full">📷 미업로드</span>'}
+          ${rec.topic ? `<span class="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">💬 ${rec.topic.slice(0,10)}...</span>` : '<span class="bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full">나눔 미등록</span>'}
+          <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">참석 ${attendCount}명</span>
+        </div>
+        ${rec.photos?.length ? `<img src="${rec.photos[0]}" class="love-photo-thumb mt-2">` : ''}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-gray-800">사랑 모임</h2>
+        ${isAdmin() ? `<button onclick="openAddLoveMeeting()" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-full font-semibold">+ 추가</button>` : ''}
+      </div>
+      ${meetings.length ? meetingCards : '<div class="text-center py-8 text-gray-400"><p class="text-2xl mb-2">💛</p><p>등록된 사랑 모임이 없습니다</p></div>'}
+    </div>`;
+}
+
+function openAddLoveMeeting() {
+  document.getElementById('modal-love-meeting-title').textContent = '사랑 모임 추가';
+  document.getElementById('love-meeting-id').value = '';
+  document.getElementById('lm-name').value = '';
+  document.getElementById('lm-location').value = '';
+  document.getElementById('lm-note').value = '';
+  document.getElementById('lm-time').value = '19:00';
+  populateLoveMeetingLeaderSelect('');
+  populateLoveMeetingMembers([]);
+  openModal('modal-love-meeting');
+}
+
+function openEditLoveMeeting(id) {
+  const m = state.loveMeetings.find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('modal-love-meeting-title').textContent = '사랑 모임 수정';
+  document.getElementById('love-meeting-id').value = id;
+  document.getElementById('lm-name').value = m.name;
+  document.getElementById('lm-day').value = m.dayOfWeek||'목';
+  document.getElementById('lm-time').value = m.time||'19:00';
+  document.getElementById('lm-location').value = m.location||'';
+  document.getElementById('lm-note').value = m.note||'';
+  populateLoveMeetingLeaderSelect(m.leaderId||'');
+  populateLoveMeetingMembers(m.members||[]);
+  openModal('modal-love-meeting');
+}
+
+function populateLoveMeetingLeaderSelect(selectedId) {
+  const sel = document.getElementById('lm-leader');
+  const all = state.students.filter(s => s.status === '활동중');
+  sel.innerHTML = '<option value="">선택</option>' + all.map(s => `<option value="${s.id}" ${s.id===selectedId?'selected':''}>[${s.group}] ${s.name}</option>`).join('');
+}
+
+function populateLoveMeetingMembers(selected) {
+  const cont = document.getElementById('lm-members-list');
+  const all = state.students.filter(s => s.status === '활동중' && s.group !== '팀장');
+  cont.innerHTML = all.map(s => `
+    <label class="flex items-center gap-1 text-xs cursor-pointer">
+      <input type="checkbox" value="${s.id}" ${selected.includes(s.id)?'checked':''} class="lm-member-check">
+      <span>${s.name}</span>
+    </label>`).join('');
+}
+
+function saveLoveMeeting() {
+  if (!isAdmin()) return;
+  const id = document.getElementById('love-meeting-id').value || `lm_${Date.now()}`;
+  const name = document.getElementById('lm-name').value.trim();
+  if (!name) { alert('모임 이름을 입력해 주세요'); return; }
+  const members = [...document.querySelectorAll('.lm-member-check:checked')].map(el => el.value);
+  const data = {
+    id, name,
+    leaderId: document.getElementById('lm-leader').value,
+    dayOfWeek: document.getElementById('lm-day').value,
+    time: document.getElementById('lm-time').value,
+    location: document.getElementById('lm-location').value,
+    note: document.getElementById('lm-note').value,
+    members,
+  };
+  const idx = state.loveMeetings.findIndex(x => x.id === id);
+  if (idx >= 0) state.loveMeetings[idx] = data;
+  else state.loveMeetings.push(data);
+  saveState();
+  closeModal('modal-love-meeting');
+  renderLoveMeeting();
+}
+
+let lrCurrentPhoto = null;
+
+function openLoveRecord(meetingId, wKey) {
+  const m = state.loveMeetings.find(x => x.id === meetingId);
+  if (!m) return;
+  const rec = state.loveMeetingRecords[`${meetingId}_${wKey}`] || { attendance:{}, prayers:{}, photos:[], topic:'', memo:'' };
+  lrCurrentPhoto = rec.photos?.[0] || null;
+  document.getElementById('modal-love-record-title').textContent = `${m.name} - ${wKey.split('_')[1]}`;
+  document.getElementById('lr-meeting-id').value = meetingId;
+  document.getElementById('lr-week-key').value = wKey;
+  document.getElementById('lr-topic').value = rec.topic || '';
+  document.getElementById('lr-memo').value = rec.memo || '';
+  document.getElementById('lr-date').value = rec.date || '';
+  document.getElementById('lr-photo-preview').innerHTML = lrCurrentPhoto ? `<img src="${lrCurrentPhoto}" class="love-photo-thumb">` : '';
+
+  const members = (m.members||[]).map(id => state.students.find(s => s.id === id)).filter(Boolean);
+  const attnEl = document.getElementById('lr-attendance-list');
+  attnEl.innerHTML = members.map(s => {
+    const cur = rec.attendance?.[s.id] || '-';
+    return `<div class="flex items-center justify-between py-1">
+      <span class="text-sm text-gray-700">${s.name}</span>
+      <div class="flex gap-1">
+        ${['O','지각','결석','-'].map(v => `<button onclick="this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('ring-2','ring-purple-400','font-bold'));this.classList.add('ring-2','ring-purple-400','font-bold');this._val='${v}'" data-uid="${s.id}" data-val="${v}"
+          class="text-xs px-2 py-1 rounded-lg ${v==='O'?'st-O':v==='지각'?'st-지각':v==='결석'?'st-결석':'bg-gray-100 text-gray-500'} ${cur===v?'ring-2 ring-purple-400 font-bold':''} lr-attn-btn">
+          ${v}
+        </button>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const prayerEl = document.getElementById('lr-prayer-list');
+  prayerEl.innerHTML = members.map(s => `
+    <div>
+      <label class="text-xs text-gray-500 font-semibold">${s.name}</label>
+      <textarea class="lr-prayer-input w-full border rounded-lg p-2 text-xs mt-0.5" rows="2" data-uid="${s.id}" placeholder="기도제목 입력">${rec.prayers?.[s.id]||''}</textarea>
+    </div>`).join('');
+
+  openModal('modal-love-record');
+}
+
+function lrPhotoPreview(input) {
+  const file = input.files[0];
+  if (!file) return;
+  compressImage(file, b64 => {
+    lrCurrentPhoto = b64;
+    document.getElementById('lr-photo-preview').innerHTML = `<img src="${b64}" class="love-photo-thumb">`;
+  });
+}
+
+function saveLoveRecord() {
+  if (!isLeader()) return;
+  const meetingId = document.getElementById('lr-meeting-id').value;
+  const wKey = document.getElementById('lr-week-key').value;
+  const key = `${meetingId}_${wKey}`;
+
+  const attendance = {};
+  document.querySelectorAll('[data-uid]').forEach(el => {
+    if (el.tagName === 'BUTTON' && el.classList.contains('ring-2')) {
+      attendance[el.dataset.uid] = el.dataset.val;
+    }
+  });
+
+  const prayers = {};
+  document.querySelectorAll('.lr-prayer-input').forEach(el => {
+    if (el.value.trim()) prayers[el.dataset.uid] = el.value.trim();
+  });
+
+  state.loveMeetingRecords[key] = {
+    date: document.getElementById('lr-date').value,
+    topic: document.getElementById('lr-topic').value,
+    memo: document.getElementById('lr-memo').value,
+    attendance,
+    prayers,
+    photos: lrCurrentPhoto ? [lrCurrentPhoto] : [],
+  };
+  saveState();
+  closeModal('modal-love-record');
+  renderLoveMeeting();
+}
+
+// ==========================================
 // STUDENT MODAL
 // ==========================================
 function openAddStudent() {
@@ -2117,6 +3109,7 @@ function openAddStudent() {
   document.getElementById('inp-class').value = '';
   document.getElementById('inp-status').value = '활동중';
   document.getElementById('inp-lineup-service').value = '1부';
+  document.getElementById('inp-admin-level').value = 'member';
   openModal('modal-student');
 }
 
@@ -2138,11 +3131,12 @@ function openEditStudent(id) {
   document.getElementById('inp-memo').value = s.memo||'';
   document.getElementById('inp-instrument').value = s.instrument||'';
   document.getElementById('inp-lineup-service').value = s.lineupService||'1부';
+  document.getElementById('inp-admin-level').value = s.adminLevel||'member';
   openModal('modal-student');
 }
 
 function saveStudent() {
-  if (!isAdmin()) return;
+  if (!isLeader()) return;
   const id = document.getElementById('edit-student-id').value;
   const name = document.getElementById('inp-name').value.trim();
   if (!name) { alert('이름을 입력하세요'); return; }
@@ -2161,6 +3155,7 @@ function saveStudent() {
     memo: document.getElementById('inp-memo').value,
     instrument: document.getElementById('inp-instrument').value,
     lineupService: document.getElementById('inp-lineup-service').value,
+    adminLevel: document.getElementById('inp-admin-level').value,
   };
 
   if (id) {
@@ -2216,7 +3211,7 @@ function openMemoModal(key) {
 }
 
 function saveMemo() {
-  if (!isAdmin()) return;
+  if (!isLeader()) return;
   const text = document.getElementById('memo-text').value;
   state.memos[tempMemoKey] = text;
   saveState();
@@ -2376,6 +3371,7 @@ function showQRResult(type, msg) {
 // ==========================================
 loadState();
 loadQTImages();
+initKakaoBanner();
 state.month = state.month || '2026-05';
 document.getElementById('header-month').textContent = state.month;
 
@@ -2386,6 +3382,7 @@ if (location.search.includes('qr=')) {
 } else if (state.currentUser) {
   document.getElementById('login-screen').style.display = 'none';
   updateHeaderUser();
+  updateNav();
   navigate('dashboard');
 } else {
   showLoginScreen();
