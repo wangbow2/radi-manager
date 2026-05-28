@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>수영로고 LADI 찬양팀</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
   * { -webkit-tap-highlight-color: transparent; }
@@ -2795,12 +2795,14 @@ function generateQR() {
     output.innerHTML = `<p class="text-xs text-red-500">QR 라이브러리 로드 실패. 페이지를 새로고침해 주세요.</p>`;
     return;
   }
-  QRCode.toDataURL(url, { width: 220, margin: 2 }, function(err, dataUrl) {
-    if (err) {
-      output.innerHTML = `<p class="text-xs text-red-500">오류: ${err.message}</p>`;
-    } else {
-      output.innerHTML = `<img src="${dataUrl}" style="width:210px;height:210px;margin:0 auto;display:block;" class="rounded-lg shadow">`;
-    }
+  output.innerHTML = '<div id="qr-canvas-wrap" style="display:flex;justify-content:center;padding:8px 0"></div>';
+  new QRCode(document.getElementById('qr-canvas-wrap'), {
+    text: url,
+    width: 210,
+    height: 210,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
   });
 
   document.getElementById('qr-info').textContent = `${qrType} ${date} | ${start}~${end} | 지각: ${late} 이후`;
