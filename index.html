@@ -1690,9 +1690,6 @@ function dlFile(url, name) {
     const isIOS = /iPhone|iPad|iPod/i.test(ua);
     const isMobile = isIOS || /Android/i.test(ua);
 
-    // 디버그: 어떤 URL로 열리는지 확인
-    if (!confirm('열기: ' + absUrl.split('/').pop() + '\n\n브라우저: ' + (isKakao ? '카카오톡' : isMobile ? '모바일' : 'PC'))) return;
-
     if (isKakao && isIOS) {
       location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(absUrl);
       return;
