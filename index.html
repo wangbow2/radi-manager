@@ -1718,12 +1718,14 @@ function _weeklyFileCard(sunDate, label, admin, extraBtn='') {
   const f = ((state.weeklyFiles || {})[month] || {})[wk] || {};
   const dateStr = `${mo}/${sunDate.getDate()}`;
 
+  const base = 'https://wangbow2.github.io/ladi-manager/';
   const btn = (lbl, key, icon, color) => {
     const url = f[key];
     if (url) {
-      return `<button onclick="dlFile('${url}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
+      const absUrl = url.startsWith('http') ? url : base + encodeURI(url);
+      return `<a href="${absUrl}" target="_blank" rel="noopener" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
         <span>${icon}</span><span>${lbl}</span>
-      </button>`;
+      </a>`;
     } else if (admin) {
       return `<button onclick="openWeeklyFileEdit('${month}',${wk},'${key}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs">
         <span>${icon}</span><span>${lbl}</span>
@@ -1774,11 +1776,12 @@ function openWeeklyFilesArchive() {
   const months = Object.keys(wf).sort().reverse();
   const admin = isAdmin() || isLeader();
 
+  const _base = 'https://wangbow2.github.io/ladi-manager/';
   const _btn = (f, key, lbl, icon, color) => {
     const url = f[key];
-    return url
-      ? `<button onclick="dlFile('${url}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold"><span>${icon}</span><span>${lbl}</span></button>`
-      : `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-200 text-xs"><span>${icon}</span><span>${lbl}</span></span>`;
+    if (!url) return `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-200 text-xs"><span>${icon}</span><span>${lbl}</span></span>`;
+    const absUrl = url.startsWith('http') ? url : _base + encodeURI(url);
+    return `<a href="${absUrl}" target="_blank" rel="noopener" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold"><span>${icon}</span><span>${lbl}</span></a>`;
   };
 
   const rows = months.map(month => {
