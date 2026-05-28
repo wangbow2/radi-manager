@@ -1033,8 +1033,20 @@ function _renderCurrentPage() {
 
 function initFirestore() {
   _stateRef.get().then(doc => {
+    const localPassages = state.qtPassageTexts && Object.keys(state.qtPassageTexts).length > 0
+      ? state.qtPassageTexts : null;
+
     if (doc.exists) {
-      _applyFsData(doc.data());
+      const fsData = doc.data();
+      _applyFsData(fsData);
+
+      // 로컬에 본문 데이터가 있는데 Firestore에 없으면 → 업로드
+      if (localPassages && !fsData.qtPassageTexts) {
+        _ignoreSnapshot = true;
+        _stateRef.update({ qtPassageTexts: localPassages }).catch(e => {});
+        state.qtPassageTexts = localPassages;
+      }
+
       if (state.currentUser) {
         updateHeaderUser();
         updateNav();
