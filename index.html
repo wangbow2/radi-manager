@@ -3178,6 +3178,46 @@ function renderLineupSelection() {
 
   const canEdit = isLeader();
   const svc = lineupService;
+
+  // 멤버는 확정된 인원만 표시
+  if (isMember()) {
+    const groups = ['솔라디','라디스','액기스'];
+    const groupBlocks = groups.map(g => {
+      const base = activeStudents().filter(s => s.group === g && s.status !== '군복무');
+      const extra = (LINEUP_GROUP_LEADERS[g]||[]).map(id => state.students.find(s => s.id === id)).filter(Boolean);
+      const all = [...base, ...extra];
+      const inMembers = all.filter((s, idx) => {
+        const isExtra = idx >= base.length;
+        const key = isExtra ? `${s.id}@${g}_${month}_w${weekIdx}_${svc}` : `${s.id}_${month}_w${weekIdx}_${svc}`;
+        return state.lineups[key]?.final === '가능';
+      });
+      if (!inMembers.length) return '';
+      const chips = inMembers.map(s => {
+        const isKeyboard = s.instrument === '건반';
+        const key = `${s.id}_${month}_w${weekIdx}_${svc}`;
+        const keyRole = state.lineups[key]?.keyRole;
+        const instLabel = isKeyboard ? ` <span class="text-xs opacity-70">${keyRole||'메인'}</span>` : (s.instrument ? ` <span class="text-xs opacity-70">${s.instrument}</span>` : '');
+        return `<span class="inline-flex items-center px-3 py-2 rounded-xl text-sm font-semibold bg-green-500 text-white">✓ ${s.name}${instLabel}</span>`;
+      }).join('');
+      return `<div class="mb-4">
+        <p class="text-xs font-bold text-gray-500 mb-2"><span class="badge-${g} px-2 py-0.5 rounded-full">${g}</span> ${inMembers.length}명</p>
+        <div class="flex flex-wrap gap-2">${chips}</div>
+      </div>`;
+    }).join('');
+
+    const confirmKey = `${month}_w${weekIdx}_${svc}_전체`;
+    const anyConfirmed = groups.some(g => state.lineupConfirmed[`${month}_w${weekIdx}_${svc}_${g}`]);
+
+    document.getElementById('lineup-weeks').innerHTML = `
+      <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-800">${week.label} <span class="text-xs text-gray-400 font-normal">토 ${week.satDate.slice(5)} / 주 ${week.sunDate.slice(5)}</span></h3>
+          ${anyConfirmed ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✅ 확정</span>' : '<span class="text-xs text-gray-400">미확정</span>'}
+        </div>
+        ${groupBlocks || '<p class="text-center text-gray-400 py-4 text-sm">아직 선택된 인원이 없어요</p>'}
+      </div>`;
+    return;
+  }
   const groups = ['솔라디','라디스','액기스'];
 
   let totalIn = 0;
