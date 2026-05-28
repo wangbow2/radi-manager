@@ -1679,8 +1679,12 @@ function updateHeaderUserPhoto() {
 // DASHBOARD
 // ==========================================
 function dlFile(url, name) {
-  // 한글 등 비ASCII 문자 포함된 경로 인코딩
   const safeUrl = url.split('/').map((seg, i) => i === 0 ? seg : encodeURIComponent(decodeURIComponent(seg))).join('/');
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.open(safeUrl, '_blank');
+    return;
+  }
   fetch(safeUrl)
     .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
     .then(blob => {
