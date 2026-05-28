@@ -2930,6 +2930,7 @@ function renderLoveMeetingAdmin() {
           <div class="flex gap-1">
             <button onclick="openEditLoveMeeting('${m.id}')" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">수정</button>
             <button onclick="openLoveRecord('${m.id}','${month}_w${lastWeekIdx}')" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg font-semibold">기록</button>
+            ${isAdmin() ? `<button onclick="deleteLoveMeeting('${m.id}')" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-lg">삭제</button>` : ''}
           </div>
         </div>
         <div class="flex gap-2 text-xs">
@@ -2949,6 +2950,16 @@ function renderLoveMeetingAdmin() {
       </div>
       ${meetings.length ? meetingCards : '<div class="text-center py-8 text-gray-400"><p class="text-2xl mb-2">💛</p><p>등록된 사랑 모임이 없습니다</p></div>'}
     </div>`;
+}
+
+function deleteLoveMeeting(id) {
+  const m = state.loveMeetings.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm(`"${m.name}" 사랑 모임을 삭제할까요?\n기록된 데이터도 함께 삭제됩니다.`)) return;
+  state.loveMeetings = state.loveMeetings.filter(x => x.id !== id);
+  Object.keys(state.loveMeetingRecords).forEach(k => { if (k.startsWith(id + '_')) delete state.loveMeetingRecords[k]; });
+  saveState();
+  renderLoveMeetingAdmin();
 }
 
 function openAddLoveMeeting() {
