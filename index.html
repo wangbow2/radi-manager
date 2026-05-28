@@ -1693,7 +1693,7 @@ function dlFile(url, name) {
     .catch(() => window.open(url, '_blank'));
 }
 
-function _weeklyFileCard(sunDate, label, admin) {
+function _weeklyFileCard(sunDate, label, admin, extraBtn='') {
   const yr = sunDate.getFullYear();
   const mo = sunDate.getMonth() + 1;
   const month = `${yr}-${String(mo).padStart(2,'0')}`;
@@ -1723,7 +1723,10 @@ function _weeklyFileCard(sunDate, label, admin) {
     <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
       <div class="flex items-center justify-between mb-2">
         <p class="text-xs text-gray-500 font-semibold">📁 ${label} <span class="text-gray-400 font-normal">${mo}월 ${wk}주차 (${dateStr})</span></p>
-        ${admin ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-500 font-semibold">편집</button>` : ''}
+        <div class="flex items-center gap-2">
+          ${extraBtn}
+          ${admin ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-500 font-semibold">편집</button>` : ''}
+        </div>
       </div>
       <div class="flex gap-1.5">
         ${btn('콘티', 'conti', '📄', 'bg-blue-50 text-blue-700')}
@@ -1738,18 +1741,73 @@ function _weeklyFileCard(sunDate, label, admin) {
 function renderWeeklyFiles() {
   const today = new Date();
   const admin = isAdmin() || isLeader();
+  const allBtn = `<button onclick="openWeeklyFilesArchive()" class="text-xs text-purple-500 font-semibold">전체 보기</button>`;
 
   if (today.getDay() === 0) {
-    // 오늘이 주일 → 이번주만
-    return _weeklyFileCard(today, '이번주', admin);
+    return _weeklyFileCard(today, '이번주', admin, allBtn);
   } else {
-    // 평일 → 지난주 + 오는주
     const lastSun = new Date(today);
     lastSun.setDate(today.getDate() - today.getDay());
     const nextSun = new Date(today);
     nextSun.setDate(today.getDate() + (7 - today.getDay()));
-    return _weeklyFileCard(lastSun, '지난주', admin) + _weeklyFileCard(nextSun, '오는주', admin);
+    return _weeklyFileCard(lastSun, '지난주', admin, allBtn) + _weeklyFileCard(nextSun, '오는주', admin, '');
   }
+}
+
+function openWeeklyFilesArchive() {
+  const wf = state.weeklyFiles || {};
+  const months = Object.keys(wf).sort().reverse();
+  const admin = isAdmin() || isLeader();
+
+  const _btn = (f, key, lbl, icon, color) => {
+    const url = f[key];
+    return url
+      ? `<button onclick="dlFile('${url}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold"><span>${icon}</span><span>${lbl}</span></button>`
+      : `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-200 text-xs"><span>${icon}</span><span>${lbl}</span></span>`;
+  };
+
+  const rows = months.map(month => {
+    const [yr, mo] = month.split('-').map(Number);
+    const weeks = Object.keys(wf[month]).sort((a,b) => b - a);
+    const weekRows = weeks.map(wk => {
+      const f = wf[month][wk] || {};
+      const sun = new Date(yr, mo - 1, 1);
+      while (sun.getDay() !== 0) sun.setDate(sun.getDate() + 1);
+      sun.setDate(sun.getDate() + (wk - 1) * 7);
+      const dateStr = `${mo}/${sun.getDate()}`;
+      return `
+        <div class="py-2 border-b border-gray-50 last:border-0">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-gray-700">${wk}주차 <span class="text-gray-400 font-normal">(${dateStr})</span></span>
+            ${admin ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-400">편집</button>` : ''}
+          </div>
+          <div class="flex gap-1.5">
+            ${_btn(f,'conti','콘티','📄','bg-blue-50 text-blue-700')}
+            ${_btn(f,'sat','리허설','🎵','bg-green-50 text-green-700')}
+            ${_btn(f,'sun1','1부','🎶','bg-purple-50 text-purple-700')}
+            ${_btn(f,'sun2','2부','🎶','bg-indigo-50 text-indigo-700')}
+            ${_btn(f,'live','2부실황','🎬','bg-orange-50 text-orange-700')}
+          </div>
+        </div>`;
+    }).join('');
+    return `<div class="mb-3">
+      <p class="text-xs font-bold text-gray-600 mb-1">${yr}년 ${mo}월</p>
+      ${weekRows}
+    </div>`;
+  }).join('');
+
+  const empty = !months.length ? '<p class="text-sm text-gray-400 text-center py-6">등록된 자료가 없습니다</p>' : '';
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="fixed inset-0 bg-black/50 z-50 flex items-end" id="archive-modal">
+      <div class="bg-white rounded-t-2xl w-full p-5 max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-shrink-0">
+          <p class="font-bold text-gray-800">📁 전체 콘티 보관함</p>
+          <button onclick="document.getElementById('archive-modal').remove()" class="text-gray-400 text-xl font-bold">×</button>
+        </div>
+        <div class="overflow-y-auto flex-1">${rows}${empty}</div>
+      </div>
+    </div>`);
 }
 
 function openWeeklyFileEdit(month, wk, key) { openWeeklyFileEditAll(month, wk); }
