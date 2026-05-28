@@ -2418,8 +2418,10 @@ function renderLineupSelection() {
     if (!members.length) return '';
 
     let gIn = 0, restrictedCount = 0;
-    const chips = members.map(s => {
-      const key = `${s.id}_${month}_w${weekIdx}_${svc}`;
+    const chips = members.map((s, idx) => {
+      const isExtra = idx >= base.length;
+      // extra 멤버는 그룹별 독립 키 사용 (e.g. 김예찬이 솔라디/액기스에서 별도 선택)
+      const key = isExtra ? `${s.id}@${g}_${month}_w${weekIdx}_${svc}` : `${s.id}_${month}_w${weekIdx}_${svc}`;
       const entry = state.lineups[key];
       const isIn = entry?.final === '가능';
       const isKeyboard = s.instrument === '건반';
@@ -2438,21 +2440,23 @@ function renderLineupSelection() {
         extraStyle = 'style="filter:grayscale(1);opacity:0.45"';
         if (isIn) {
           btnClass = 'bg-yellow-400 text-white cursor-pointer border border-yellow-500';
-          clickAttr = canEdit ? `onclick="toggleLineupMember('${s.id}',${weekIdx},'${svc}')"` : '';
+          clickAttr = canEdit ? `onclick="toggleLineupKey('${key}','${s.id}')"` : '';
           inner = `✓ ${s.name} <span class="text-xs bg-yellow-200 text-yellow-900 px-1 rounded ml-1">목양승인</span>`;
         } else {
           btnClass = 'bg-gray-100 text-gray-600 border border-gray-200 cursor-pointer';
           const rJson = JSON.stringify(restr.restrictions).replace(/"/g, '&quot;');
           clickAttr = canEdit ? `onclick="openPastoralApproval('${s.id}',${weekIdx},'${svc}','${rJson}')"` : '';
-          inner = `⚠️ ${s.name}${s.instrument ? ` <span class="text-xs opacity-70">${s.instrument}</span>` : ''}`;
+          inner = `⚠️ ${s.name}${(!isExtra && s.instrument) ? ` <span class="text-xs opacity-70">${s.instrument}</span>` : ''}`;
         }
       } else {
         const isApproved = restr.pastoralApproved;
         if (isIn && isKeyboard && keyRole === '세컨') btnClass = 'bg-blue-500 text-white shadow-sm cursor-pointer';
         else if (isIn) btnClass = `bg-green-500 text-white shadow-sm cursor-pointer ${isApproved ? 'ring-2 ring-yellow-400' : ''}`;
         else btnClass = 'bg-gray-100 text-gray-600 border border-gray-200 cursor-pointer';
-        clickAttr = canEdit ? `onclick="toggleLineupMember('${s.id}',${weekIdx},'${svc}')"` : '';
-        const instLabel = isKeyboard && isIn ? `<span class="text-xs opacity-90 ml-0.5">${keyRole}</span>` : (s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : '');
+        clickAttr = canEdit ? `onclick="toggleLineupKey('${key}','${s.id}')"` : '';
+        // 솔라디 extra이면 악기 꼬리표 숨김
+        const hideInst = isExtra && g === '솔라디';
+        const instLabel = hideInst ? '' : (isKeyboard && isIn ? `<span class="text-xs opacity-90 ml-0.5">${keyRole}</span>` : (s.instrument ? `<span class="text-xs opacity-70 ml-0.5">${s.instrument}</span>` : ''));
         inner = `${isIn ? '<span class="text-xs">✓</span>' : ''}${s.name}${instLabel}${isApproved && isIn ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-1 rounded ml-1">승인</span>' : ''}`;
       }
 
@@ -2497,6 +2501,22 @@ function toggleLineupConfirm(confirmKey) {
   } else {
     state.lineupConfirmed[confirmKey] = { confirmedAt: Date.now(), confirmedBy: state.currentUser };
     addEditLog(`라인업 최종확정: ${confirmKey}`);
+  }
+  saveState();
+  renderLineupSelection();
+}
+
+function toggleLineupKey(key, studentId) {
+  if (!isLeader()) return;
+  const s = state.students.find(x => x.id === studentId);
+  const isKeyboard = s?.instrument === '건반';
+  const cur = state.lineups[key];
+  if (!cur || cur.final === '') {
+    state.lineups[key] = { final: '가능', keyRole: isKeyboard ? '메인' : null };
+  } else if (isKeyboard && cur.keyRole === '메인') {
+    state.lineups[key] = { final: '가능', keyRole: '세컨' };
+  } else {
+    delete state.lineups[key];
   }
   saveState();
   renderLineupSelection();
