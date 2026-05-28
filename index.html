@@ -76,7 +76,12 @@
 <!-- Header -->
 <header class="bg-purple-700 text-white px-4 py-3 fixed top-0 left-0 right-0 z-50 shadow-md">
   <div class="flex items-center justify-between max-w-2xl mx-auto">
-    <h1 class="text-lg font-bold">🎵 수영로고 LADI 찬양팀</h1>
+    <div class="flex items-center gap-2">
+      <button id="header-back-btn" onclick="goBack()" class="text-white opacity-80 active:opacity-60 pr-1" style="display:none">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h1 class="text-lg font-bold cursor-pointer active:opacity-70" onclick="navigate('dashboard')">수영로 LADI</h1>
+    </div>
     <div class="flex items-center gap-2">
       <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
       <button id="header-user-btn" onclick="showUserMenu()" class="flex items-center gap-1 bg-purple-600 px-2 py-1 rounded-full text-sm">
@@ -1170,7 +1175,20 @@ function monthName(ym) {
 // ==========================================
 // NAVIGATION
 // ==========================================
-function navigate(page, extra) {
+let navHistory = [];
+
+function updateBackBtn() {
+  const btn = document.getElementById('header-back-btn');
+  if (btn) btn.style.display = navHistory.length > 0 ? '' : 'none';
+}
+
+function goBack() {
+  if (!navHistory.length) return;
+  const prev = navHistory.pop();
+  navigate(prev.page, prev.extra, true);
+}
+
+function navigate(page, extra, isBack) {
   // Route guards for regular members
   if (isMember()) {
     if (page === 'students') return;
@@ -1180,6 +1198,11 @@ function navigate(page, extra) {
       if (targetId && targetId !== state.currentUser) return;
     }
   }
+  if (!isBack && state.page && state.page !== page) {
+    navHistory.push({ page: state.page, extra: null });
+    if (navHistory.length > 20) navHistory.shift();
+  }
+  if (page === 'dashboard') navHistory = [];
   if (state.page === 'qr' && page !== 'qr') stopQRCamera();
   state.page = page;
   if (extra) Object.assign(state, extra);
@@ -1199,6 +1222,7 @@ function navigate(page, extra) {
   else if (page==='detail') renderDetail(state.currentStudentId);
   else if (page==='qr') renderQRScanPage();
   else if (page==='love') renderLoveMeeting();
+  updateBackBtn();
   window.scrollTo(0,0);
 }
 
