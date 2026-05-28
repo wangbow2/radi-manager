@@ -1679,12 +1679,26 @@ function updateHeaderUserPhoto() {
 // DASHBOARD
 // ==========================================
 function openFile(e, absUrl) {
-  if (navigator.share) {
-    e.preventDefault();
-    const name = decodeURIComponent(absUrl.split('/').pop());
-    navigator.share({ title: name, url: absUrl }).catch(() => { location.href = absUrl; });
-  }
-  // navigator.share 없으면 href가 그대로 동작
+  e.preventDefault();
+  const name = decodeURIComponent(absUrl.split('/').pop());
+  fetch(absUrl)
+    .then(r => r.blob())
+    .then(blob => {
+      const file = new File([blob], name, { type: blob.type });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: name });
+      }
+      if (navigator.share) {
+        return navigator.share({ title: name, url: absUrl });
+      }
+      // PC: blob 다운로드
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    })
+    .catch(() => { location.href = absUrl; });
 }
 
 function dlFile(url, name) {
