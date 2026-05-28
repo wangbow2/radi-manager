@@ -1713,7 +1713,8 @@ function _weeklyFileCard(sunDate, label, admin) {
       <div class="flex gap-1.5">
         ${btn('콘티', 'conti', '📄', 'bg-blue-50 text-blue-700')}
         ${btn('리허설', 'sat', '🎵', 'bg-green-50 text-green-700')}
-        ${btn('주일MP3', 'sun', '🎶', 'bg-purple-50 text-purple-700')}
+        ${btn('1부', 'sun1', '🎶', 'bg-purple-50 text-purple-700')}
+        ${btn('2부', 'sun2', '🎶', 'bg-indigo-50 text-indigo-700')}
         ${btn('2부실황', 'live', '🎬', 'bg-orange-50 text-orange-700')}
       </div>
     </div>`;
@@ -1748,7 +1749,7 @@ function openWeeklyFileEditAll(month, wk) {
           <button onclick="document.getElementById('weekly-file-modal').remove()" class="text-gray-400 text-xl font-bold">×</button>
         </div>
         <div class="text-xs text-gray-400 mb-2">파일을 GitHub에 올린 후 경로를 입력하세요.<br>예: <span class="font-mono bg-gray-100 px-1 rounded">files/2026-06/1주-콘티.pdf</span></div>
-        ${[['conti','📄 콘티 (PDF)'],['sat','🎵 토요일 리허설 MP3'],['sun','🎶 주일 MP3'],['live','🎬 주일 2부 실황']].map(([key, label]) => `
+        ${[['conti','📄 콘티 (PDF)'],['sat','🎵 토요일 리허설 MP3'],['sun1','🎶 주일 1부 MP3'],['sun2','🎶 주일 2부 MP3'],['live','🎬 주일 2부 실황']].map(([key, label]) => `
           <div>
             <label class="text-xs text-gray-500 font-semibold">${label}</label>
             <input id="wf-${key}" value="${f[key]||''}" placeholder="파일 경로 또는 URL" class="mt-0.5 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
@@ -1765,7 +1766,8 @@ function saveWeeklyFiles(month, wk) {
   state.weeklyFiles[month][wk] = {
     conti: document.getElementById('wf-conti').value.trim(),
     sat:   document.getElementById('wf-sat').value.trim(),
-    sun:   document.getElementById('wf-sun').value.trim(),
+    sun1:  document.getElementById('wf-sun1').value.trim(),
+    sun2:  document.getElementById('wf-sun2').value.trim(),
     live:  document.getElementById('wf-live').value.trim(),
   };
   saveState();
