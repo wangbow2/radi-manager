@@ -2680,7 +2680,7 @@ function processScannedQR(qrData) {
     const urlParams = new URL(qrData).searchParams;
     const token = urlParams.get('qr');
     if (!token) throw new Error('invalid');
-    data = JSON.parse(atob(token));
+    data = JSON.parse(decodeURIComponent(escape(atob(token))));
   } catch(e) {
     if (resultEl) resultEl.innerHTML = '<p class="text-center text-red-600 font-semibold py-2">유효하지 않은 QR 코드입니다</p>';
     return;
@@ -2760,7 +2760,7 @@ function generateQR() {
   const start = document.getElementById('qr-start').value;
   const end = document.getElementById('qr-end').value;
   const late = document.getElementById('qr-late').value;
-  const token = btoa(JSON.stringify({ type:qrType, date, start, end, late, ts: Date.now() }));
+  const token = btoa(unescape(encodeURIComponent(JSON.stringify({ type:qrType, date, start, end, late, ts: Date.now() }))));
   const url = `${location.origin}${location.pathname}?qr=${token}`;
 
   const output = document.getElementById('qr-output');
@@ -3228,7 +3228,7 @@ function checkQRAttendance() {
   if (!qr) return;
 
   try {
-    const data = JSON.parse(atob(qr));
+    const data = JSON.parse(decodeURIComponent(escape(atob(qr))));
     const now = new Date();
     const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const nowDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
