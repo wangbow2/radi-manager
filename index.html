@@ -1679,13 +1679,24 @@ function updateHeaderUserPhoto() {
 // DASHBOARD
 // ==========================================
 function dlFile(url, name) {
-  const safeUrl = url.split('/').map((seg, i) => i === 0 ? seg : encodeURIComponent(decodeURIComponent(seg))).join('/');
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    window.open(safeUrl, '_blank');
+  const safeUrl = encodeURI(decodeURI(url));
+  const base = location.origin + location.pathname.replace(/[^\/]+$/, '');
+  const absUrl = safeUrl.startsWith('http') ? safeUrl : (base + safeUrl);
+
+  if (isKakaoTalkBrowser()) {
+    if (isIOSDevice()) {
+      location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(absUrl);
+    } else {
+      location.href = 'intent://' + absUrl.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+    }
     return;
   }
-  fetch(safeUrl)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.open(absUrl, '_blank');
+    return;
+  }
+  fetch(absUrl)
     .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
     .then(blob => {
       const a = document.createElement('a');
@@ -1696,7 +1707,7 @@ function dlFile(url, name) {
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     })
-    .catch(() => window.open(safeUrl, '_blank'));
+    .catch(() => window.open(absUrl, '_blank'));
 }
 
 function _weeklyFileCard(sunDate, label, admin, extraBtn='') {
