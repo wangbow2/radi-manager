@@ -832,6 +832,7 @@ let state = {
   loveMeetings: [],
   loveMeetingRecords: {},
   qrUsage: {},
+  weeklyFiles: {},
 };
 
 let tempCheck = {};
@@ -864,6 +865,7 @@ function loadState() {
   if (!state.qrUsage) state.qrUsage = {};
   if (!state.lineupConfirmed) state.lineupConfirmed = {};
   if (!state.qtPassageTexts) state.qtPassageTexts = {};
+  if (!state.weeklyFiles) state.weeklyFiles = {};
   if (!state._may2026Attendance) {
     const mo = '2026-05';
     // 황영환(t1), 김예찬(t3), 정민지(t4), 정여명(t5) — 전 주차 토/주일 O
@@ -954,6 +956,7 @@ function saveState() {
     qtPassageTexts: state.qtPassageTexts,
     _may2026Attendance: state._may2026Attendance,
     _phoneMigrated2026: state._phoneMigrated2026,
+    weeklyFiles: state.weeklyFiles,
   }));
   _fsSaveDebounced();
 }
@@ -997,6 +1000,7 @@ function _getFsData() {
     qtPassageTexts: state.qtPassageTexts,
     _may2026Attendance: state._may2026Attendance,
     _phoneMigrated2026: state._phoneMigrated2026,
+    weeklyFiles: state.weeklyFiles,
   };
 }
 
@@ -1674,6 +1678,102 @@ function updateHeaderUserPhoto() {
 // ==========================================
 // DASHBOARD
 // ==========================================
+function renderWeeklyFiles() {
+  const month = state.month;
+  const [yr, mo] = month.split('-').map(Number);
+  const monthFiles = (state.weeklyFiles || {})[month] || {};
+
+  // 해당 월의 주일 날짜 계산
+  const sundays = [];
+  const d = new Date(yr, mo - 1, 1);
+  while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
+  while (d.getMonth() === mo - 1) {
+    sundays.push(new Date(d));
+    d.setDate(d.getDate() + 7);
+  }
+
+  if (!sundays.length) return '';
+
+  const rows = sundays.map((sun, i) => {
+    const wk = i + 1;
+    const dateStr = `${mo}/${sun.getDate()}`;
+    const f = monthFiles[wk] || {};
+    const admin = isAdmin() || isLeader();
+
+    const btn = (label, key, icon, color) => {
+      const url = f[key];
+      if (url) {
+        return `<a href="${url}" download class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl ${color} text-xs font-semibold">
+          <span>${icon}</span><span>${label}</span>
+        </a>`;
+      } else if (admin) {
+        return `<button onclick="openWeeklyFileEdit('${month}',${wk},'${key}')" class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs">
+          <span>${icon}</span><span>${label}</span>
+        </button>`;
+      }
+      return `<span class="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl bg-gray-50 text-gray-300 text-xs opacity-50">
+        <span>${icon}</span><span>${label}</span>
+      </span>`;
+    };
+
+    return `<div class="border-b border-gray-50 last:border-0 py-2">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-gray-700">${wk}주차 <span class="text-gray-400 font-normal">(${dateStr})</span></span>
+        ${(isAdmin() || isLeader()) ? `<button onclick="openWeeklyFileEditAll('${month}',${wk})" class="text-xs text-purple-500 font-semibold">편집</button>` : ''}
+      </div>
+      <div class="flex gap-1.5">
+        ${btn('콘티', 'conti', '📄', 'bg-blue-50 text-blue-700')}
+        ${btn('리허설', 'sat', '🎵', 'bg-green-50 text-green-700')}
+        ${btn('주일MP3', 'sun', '🎶', 'bg-purple-50 text-purple-700')}
+        ${btn('2부실황', 'live', '🎬', 'bg-orange-50 text-orange-700')}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+      <p class="text-xs text-gray-500 font-semibold mb-1">📁 ${getMonthStr(month)} 주일 자료</p>
+      ${rows}
+    </div>`;
+}
+
+function openWeeklyFileEdit(month, wk, key) { openWeeklyFileEditAll(month, wk); }
+
+function openWeeklyFileEditAll(month, wk) {
+  const f = ((state.weeklyFiles || {})[month] || {})[wk] || {};
+  const html = `
+    <div class="fixed inset-0 bg-black/50 z-50 flex items-end" id="weekly-file-modal">
+      <div class="bg-white rounded-t-2xl w-full p-5 space-y-3">
+        <div class="flex items-center justify-between mb-1">
+          <p class="font-bold text-gray-800">${month.split('-')[1]}월 ${wk}주차 파일 편집</p>
+          <button onclick="document.getElementById('weekly-file-modal').remove()" class="text-gray-400 text-xl font-bold">×</button>
+        </div>
+        <div class="text-xs text-gray-400 mb-2">파일을 GitHub에 올린 후 경로를 입력하세요.<br>예: <span class="font-mono bg-gray-100 px-1 rounded">files/2026-06/1주-콘티.pdf</span></div>
+        ${[['conti','📄 콘티 (PDF)'],['sat','🎵 토요일 리허설 MP3'],['sun','🎶 주일 MP3'],['live','🎬 주일 2부 실황']].map(([key, label]) => `
+          <div>
+            <label class="text-xs text-gray-500 font-semibold">${label}</label>
+            <input id="wf-${key}" value="${f[key]||''}" placeholder="파일 경로 또는 URL" class="mt-0.5 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+          </div>`).join('')}
+        <button onclick="saveWeeklyFiles('${month}',${wk})" class="w-full bg-purple-600 text-white py-2.5 rounded-xl font-bold text-sm mt-1">저장</button>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function saveWeeklyFiles(month, wk) {
+  if (!state.weeklyFiles) state.weeklyFiles = {};
+  if (!state.weeklyFiles[month]) state.weeklyFiles[month] = {};
+  state.weeklyFiles[month][wk] = {
+    conti: document.getElementById('wf-conti').value.trim(),
+    sat:   document.getElementById('wf-sat').value.trim(),
+    sun:   document.getElementById('wf-sun').value.trim(),
+    live:  document.getElementById('wf-live').value.trim(),
+  };
+  saveState();
+  document.getElementById('weekly-file-modal').remove();
+  renderDashboard();
+}
+
 function renderDashboard() {
   if (isMember()) { renderMemberDashboard(); return; }
   const allStudents = activeStudents();
@@ -1699,6 +1799,8 @@ function renderDashboard() {
       </div>
 
       ${renderAdminStats()}
+
+      ${renderWeeklyFiles()}
 
       <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
@@ -1834,6 +1936,8 @@ function renderMemberDashboard() {
         <p class="text-xs text-gray-500 font-semibold mb-1">${monthName(month)} 내 기록</p>
         ${weekRows}
       </div>
+
+      ${renderWeeklyFiles()}
 
       <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
