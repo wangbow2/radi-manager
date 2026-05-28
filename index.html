@@ -85,7 +85,8 @@
     <div class="flex items-center gap-2">
       <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
       <button id="header-user-btn" onclick="showUserMenu()" class="flex items-center gap-1 bg-purple-600 px-2 py-1 rounded-full text-sm">
-        <span>👤</span><span id="header-user-name" class="text-xs max-w-16 truncate"></span>
+        <div class="header-user-icon w-5 h-5 rounded-full bg-purple-400 overflow-hidden flex items-center justify-center text-xs font-bold" id="header-user-icon"></div>
+        <span id="header-user-name" class="text-xs max-w-16 truncate"></span>
       </button>
     </div>
   </div>
@@ -176,6 +177,11 @@
   <!-- ==================== QT 제출 ==================== -->
   <div id="page-qt" class="page p-4">
     <div id="qt-submit-content"></div>
+  </div>
+
+  <!-- ==================== 마이페이지 ==================== -->
+  <div id="page-mypage" class="page p-4">
+    <div id="mypage-content"></div>
   </div>
 
 </main>
@@ -424,13 +430,24 @@
 </div>
 
 <!-- User Menu Modal -->
+<!-- Photo Zoom Modal -->
+<div id="modal-photo-zoom" class="modal" onclick="closeModal('modal-photo-zoom')">
+  <div class="flex items-center justify-center w-full h-full p-6">
+    <img id="photo-zoom-img" src="" class="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl">
+  </div>
+</div>
+
 <div id="modal-user-menu" class="modal">
   <div class="bg-white rounded-2xl w-full max-w-xs mx-4">
-    <div class="p-4 border-b">
-      <p class="font-bold text-gray-800" id="user-menu-name">내 계정</p>
-      <p class="text-xs text-gray-500 mt-0.5" id="user-menu-role"></p>
+    <div class="p-4 border-b flex items-center gap-3">
+      <div id="usermenu-profile-photo" class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer" onclick="closeModal('modal-user-menu');navigate('mypage')"></div>
+      <div>
+        <p class="font-bold text-gray-800" id="user-menu-name">내 계정</p>
+        <p class="text-xs text-gray-500 mt-0.5" id="user-menu-role"></p>
+      </div>
     </div>
     <div class="p-2">
+      <button onclick="closeModal('modal-user-menu');navigate('mypage')" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl">👤 마이페이지</button>
       <button onclick="closeModal('modal-user-menu');openModal('modal-pin')" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl">🔐 PIN 번호 변경</button>
       <button onclick="closeModal('modal-user-menu');doLogout()" class="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl font-semibold">🚪 로그아웃</button>
     </div>
@@ -941,6 +958,16 @@ function saveState() {
 // IMAGE STORAGE (separate from main state)
 // ==========================================
 let qtImages = {};
+let profiles = {};
+
+function loadProfiles() {
+  try { const d = localStorage.getItem('radi_profiles'); if (d) profiles = JSON.parse(d); } catch(e) { profiles = {}; }
+}
+
+function saveProfiles() {
+  try { localStorage.setItem('radi_profiles', JSON.stringify(profiles)); }
+  catch(e) { alert('저장 공간이 부족해요. 사진을 줄여주세요.'); }
+}
 
 function loadQTImages() {
   try { const d = localStorage.getItem('radi_qt_images'); if (d) qtImages = JSON.parse(d); } catch(e) { qtImages = {}; }
@@ -1058,6 +1085,19 @@ function showLoginScreen() {
 function updateHeaderUser() {
   const u = getCurrentUser();
   document.getElementById('header-user-name').textContent = u ? u.name : '';
+  const icon = document.getElementById('header-user-icon');
+  if (icon && u) {
+    const p = profiles[u.id] || {};
+    if (p.photo) {
+      icon.style.backgroundImage = `url(${p.photo})`;
+      icon.style.backgroundSize = 'cover';
+      icon.style.backgroundPosition = 'center';
+      icon.textContent = '';
+    } else {
+      icon.style.backgroundImage = '';
+      icon.textContent = u.name[0];
+    }
+  }
 }
 
 function updateNav() {
@@ -1072,6 +1112,19 @@ function showUserMenu() {
   const u = getCurrentUser();
   document.getElementById('user-menu-name').textContent = u ? u.name : '';
   document.getElementById('user-menu-role').textContent = u ? `${getRoleLabel()} · ${u.group}${u.role ? ' · '+u.role : ''}` : '';
+  const menuPhoto = document.getElementById('usermenu-profile-photo');
+  if (menuPhoto && u) {
+    const p = profiles[u.id] || {};
+    if (p.photo) {
+      menuPhoto.style.backgroundImage = `url(${p.photo})`;
+      menuPhoto.style.backgroundSize = 'cover';
+      menuPhoto.style.backgroundPosition = 'center';
+      menuPhoto.innerHTML = '';
+    } else {
+      menuPhoto.style.backgroundImage = '';
+      menuPhoto.innerHTML = `<span class="text-lg font-bold text-purple-500">${u.name[0]}</span>`;
+    }
+  }
   openModal('modal-user-menu');
 }
 
@@ -1282,8 +1335,198 @@ function navigate(page, extra, isBack) {
   else if (page==='detail') renderDetail(state.currentStudentId);
   else if (page==='qr') renderQRScanPage();
   else if (page==='love') renderLoveMeeting();
+  else if (page==='mypage') renderMyPage();
   updateBackBtn();
   window.scrollTo(0,0);
+}
+
+// ==========================================
+// MYPAGE
+// ==========================================
+let mypageEditMode = false;
+
+function callPhone(number) {
+  window.location.href = 'tel:' + number;
+}
+
+function renderMyPage() {
+  const u = getCurrentUser();
+  if (!u) return;
+  const uid = u.id;
+  const p = profiles[uid] || {};
+  const photo = p.photo || null;
+
+  const photoBg = photo
+    ? `background-image:url(${photo});background-size:cover;background-position:center`
+    : '';
+  const photoInner = photo ? '' : `<span class="text-3xl font-bold text-purple-400">${u.name[0]}</span>`;
+
+  if (mypageEditMode) {
+    document.getElementById('mypage-content').innerHTML = `
+      <div class="space-y-4">
+        <div class="bg-white rounded-2xl p-5 shadow-sm text-center">
+          <div class="relative inline-block mb-3">
+            <div class="w-24 h-24 rounded-full bg-purple-100 mx-auto overflow-hidden flex items-center justify-center${photo?' cursor-pointer':''}" style="${photoBg}" ${photo?`onclick="zoomProfilePhoto('${uid}')"`:''}>${photoInner}</div>
+            <label for="mypage-photo-cam" class="absolute bottom-0 right-0 bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center cursor-pointer shadow-lg" title="사진 변경">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </label>
+            <input type="file" id="mypage-photo-cam" accept="image/*" class="hidden" onchange="changeProfilePhoto(this)">
+          </div>
+          <h2 class="font-bold text-xl text-gray-800">${u.name}</h2>
+          <p class="text-sm text-gray-400 mt-0.5">${u.grade||''} · ${u.group}</p>
+          <div class="flex gap-2 justify-center mt-3">
+            <label for="mypage-photo-cam" class="text-xs text-purple-600 border border-purple-300 px-3 py-1.5 rounded-full cursor-pointer">📷 카메라</label>
+            <label for="mypage-photo-gallery" class="text-xs text-purple-600 border border-purple-300 px-3 py-1.5 rounded-full cursor-pointer">🖼 갤러리</label>
+            <input type="file" id="mypage-photo-gallery" accept="image/*" class="hidden" onchange="changeProfilePhoto(this)">
+            ${photo?`<button onclick="removeProfilePhoto()" class="text-xs text-red-500 border border-red-200 px-3 py-1.5 rounded-full">삭제</button>`:''}
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <p class="text-xs font-bold text-purple-400 mb-1">기본 정보</p>
+          ${mpField('학교','mp-school',p.school||'')}
+          ${mpField('고등부 반','mp-grade-class',p.grade_class||'','예: 1부 3반')}
+          ${mpField('맡은 포지션','mp-position',p.position||(u.role||u.instrument||''))}
+          ${mpField('MBTI','mp-mbti',p.mbti||'','예: INFP')}
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <p class="text-xs font-bold text-purple-400 mb-1">내 이야기</p>
+          ${mpField('가장 좋아하는 찬양','mp-fave-song',p.fave_song||'')}
+          ${mpField('취미','mp-hobby',p.hobby||'')}
+          ${mpField('특기','mp-special',p.special||'')}
+          ${mpField('3대 총합','mp-three-rm',p.three_rm||'','예: 300kg')}
+          ${mpField('마지막 한 마디','mp-last-word',p.last_word||'')}
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+          <p class="text-xs font-bold text-purple-400 mb-2">자기소개</p>
+          <textarea id="mp-intro" rows="4" placeholder="자기소개를 자유롭게 써주세요..." class="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-400">${(p.intro||'').replace(/</g,'&lt;')}</textarea>
+        </div>
+        <div class="flex gap-2 pb-2">
+          <button onclick="saveMyPage()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold shadow">저장</button>
+          <button onclick="mypageEditMode=false;renderMyPage()" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">취소</button>
+        </div>
+      </div>`;
+  } else {
+    const rows = [
+      ['학교', p.school],
+      ['고등부 반', p.grade_class],
+      ['맡은 포지션', p.position||(u.role||u.instrument||'')],
+      ['MBTI', p.mbti],
+      ['가장 좋아하는 찬양', p.fave_song],
+      ['취미', p.hobby],
+      ['특기', p.special],
+      ['3대 총합', p.three_rm],
+      ['마지막 한 마디', p.last_word],
+    ].filter(([,v])=>v);
+
+    document.getElementById('mypage-content').innerHTML = `
+      <div class="space-y-4">
+        <div class="bg-white rounded-2xl p-5 shadow-sm text-center">
+          <div class="w-24 h-24 rounded-full bg-purple-100 mx-auto overflow-hidden flex items-center justify-center mb-3${photo?' cursor-pointer':''}" style="${photoBg}" ${photo?`onclick="zoomProfilePhoto('${uid}')"`:''}>${photoInner}</div>
+          <h2 class="font-bold text-xl text-gray-800">${u.name}</h2>
+          <p class="text-sm text-gray-400 mt-0.5">${u.grade||''} · ${u.group}</p>
+          ${u.phone&&isLeader()?`<button onclick="callPhone('${u.phone}')" class="mt-2 text-xs bg-green-50 text-green-700 border border-green-200 px-4 py-1.5 rounded-full">📞 ${u.phone}</button>`:''}
+        </div>
+        ${rows.length?`
+        <div class="bg-white rounded-2xl p-4 shadow-sm divide-y divide-gray-50">
+          ${rows.map(([k,v])=>`
+            <div class="flex items-start justify-between py-2.5 first:pt-0 last:pb-0">
+              <span class="text-xs text-gray-400 w-28 flex-shrink-0 pt-0.5">${k}</span>
+              <span class="text-sm text-gray-800 text-right break-words max-w-[60%]">${v.replace(/</g,'&lt;')}</span>
+            </div>`).join('')}
+        </div>`:''}
+        ${p.intro?`
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+          <p class="text-xs font-bold text-purple-400 mb-2">자기소개</p>
+          <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${p.intro.replace(/</g,'&lt;')}</p>
+        </div>`:''}
+        <button onclick="mypageEditMode=true;renderMyPage()" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow">✏️ 프로필 편집</button>
+      </div>`;
+  }
+}
+
+function mpField(label, id, value, placeholder) {
+  const escaped = (value||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  return `<div>
+    <label class="text-xs text-gray-400 mb-1 block">${label}</label>
+    <input type="text" id="${id}" value="${escaped}" placeholder="${placeholder||''}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+  </div>`;
+}
+
+function saveMyPage() {
+  const u = getCurrentUser();
+  if (!u) return;
+  if (!profiles[u.id]) profiles[u.id] = {};
+  const p = profiles[u.id];
+  p.school       = document.getElementById('mp-school').value.trim();
+  p.grade_class  = document.getElementById('mp-grade-class').value.trim();
+  p.position     = document.getElementById('mp-position').value.trim();
+  p.mbti         = document.getElementById('mp-mbti').value.trim();
+  p.fave_song    = document.getElementById('mp-fave-song').value.trim();
+  p.hobby        = document.getElementById('mp-hobby').value.trim();
+  p.special      = document.getElementById('mp-special').value.trim();
+  p.three_rm     = document.getElementById('mp-three-rm').value.trim();
+  p.last_word    = document.getElementById('mp-last-word').value.trim();
+  p.intro        = document.getElementById('mp-intro').value.trim();
+  saveProfiles();
+  mypageEditMode = false;
+  renderMyPage();
+}
+
+function changeProfilePhoto(input) {
+  if (!input.files?.[0]) return;
+  compressImage(input.files[0], data => {
+    const u = getCurrentUser();
+    if (!u) return;
+    if (!profiles[u.id]) profiles[u.id] = {};
+    profiles[u.id].photo = data;
+    saveProfiles();
+    mypageEditMode = true;
+    renderMyPage();
+    updateHeaderUserPhoto();
+  });
+}
+
+function removeProfilePhoto() {
+  const u = getCurrentUser();
+  if (!u) return;
+  if (profiles[u.id]) delete profiles[u.id].photo;
+  saveProfiles();
+  mypageEditMode = true;
+  renderMyPage();
+  updateHeaderUserPhoto();
+}
+
+function zoomProfilePhoto(uid) {
+  const p = profiles[uid] || {};
+  if (!p.photo) return;
+  document.getElementById('photo-zoom-img').src = p.photo;
+  openModal('modal-photo-zoom');
+}
+
+function updateHeaderUserPhoto() {
+  const u = getCurrentUser();
+  if (!u) return;
+  const p = profiles[u.id] || {};
+  const btn = document.getElementById('header-user-btn');
+  if (!btn) return;
+  const icon = btn.querySelector('.header-user-icon');
+  if (p.photo) {
+    if (icon) icon.style.backgroundImage = `url(${p.photo})`;
+  } else {
+    if (icon) icon.style.backgroundImage = '';
+  }
+  const menuPhoto = document.getElementById('usermenu-profile-photo');
+  if (menuPhoto) {
+    if (p.photo) {
+      menuPhoto.style.backgroundImage = `url(${p.photo})`;
+      menuPhoto.style.backgroundSize = 'cover';
+      menuPhoto.style.backgroundPosition = 'center';
+      menuPhoto.innerHTML = '';
+    } else {
+      menuPhoto.style.backgroundImage = '';
+      menuPhoto.innerHTML = `<span class="text-lg font-bold text-purple-500">${u.name[0]}</span>`;
+    }
+  }
 }
 
 // ==========================================
@@ -1515,7 +1758,7 @@ function renderStudents() {
                     </div>` : ''}
                   </div>
                   <div class="flex flex-col gap-1">
-                    ${(isLeader() && s.phone) ? `<a href="tel:${s.phone}" onclick="event.stopPropagation()" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-center">📞</a>` : ''}
+                    ${(isLeader() && s.phone) ? `<button onclick="event.stopPropagation();callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">📞</button>` : ''}
                     ${isAdmin() ? `<button onclick="event.stopPropagation();openEditStudent('${s.id}')" class="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-lg">수정</button>` : ''}
                   </div>
                 </div>
@@ -1608,14 +1851,14 @@ function renderDetail(id) {
         </div>
       </div>
       <div class="p-4 space-y-3">
-        ${canSeeSensitive && s.phone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">학생 연락처</span><a href="tel:${s.phone}" class="text-sm text-blue-600 font-semibold">${s.phone}</a></div>` : ''}
-        ${canSeeSensitive && s.parentPhone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">보호자 연락처</span><a href="tel:${s.parentPhone}" class="text-sm text-blue-600 font-semibold">${s.parentPhone}</a></div>` : ''}
+        ${canSeeSensitive && s.phone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">학생 연락처</span><button onclick="callPhone('${s.phone}')" class="text-sm text-blue-600 font-semibold">${s.phone}</button></div>` : ''}
+        ${canSeeSensitive && s.parentPhone ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">보호자 연락처</span><button onclick="callPhone('${s.parentPhone}')" class="text-sm text-blue-600 font-semibold">${s.parentPhone}</button></div>` : ''}
         ${s.teacher ? `<div class="flex items-center justify-between"><span class="text-sm text-gray-500">담당 교사</span><span class="text-sm font-semibold">${s.teacher}</span></div>` : ''}
         ${(canSeeSensitive || isOwnProfile) && s.memo ? `<div class="bg-yellow-50 rounded-xl p-3 text-sm text-gray-700">📝 ${s.memo}</div>` : ''}
       </div>
       <div class="border-t flex">
         ${canEdit ? `<button onclick="openEditStudent('${s.id}')" class="flex-1 py-3 text-sm text-purple-700 font-semibold border-r">정보 수정</button>` : ''}
-        ${canSeeSensitive && s.phone ? `<a href="tel:${s.phone}" class="flex-1 py-3 text-sm text-blue-700 font-semibold text-center ${canEdit?'border-r':''}">📞 전화</a>` : ''}
+        ${canSeeSensitive && s.phone ? `<button onclick="callPhone('${s.phone}')" class="flex-1 py-3 text-sm text-blue-700 font-semibold ${canEdit?'border-r':''}">📞 전화</button>` : ''}
         ${canEdit ? `<button onclick="openMemoModal('student_${s.id}')" class="flex-1 py-3 text-sm text-gray-700 font-semibold">📝 메모</button>` : ''}
       </div>
     </div>
@@ -2049,10 +2292,16 @@ function renderQTDayView() {
       <textarea id="qt-day-text" rows="5" placeholder="오늘 말씀을 묵상하며 느낀 점, 적용할 점을 자유롭게 써주세요..." class="w-full border rounded-xl p-3 text-sm resize-none">${existingContent}</textarea>
       <div>
         ${existingImg ? `<div id="qt-day-img-preview"><div class="relative"><img src="${existingImg}" class="w-full rounded-xl max-h-52 object-cover"><button onclick="_qtDayPendingImg=null;document.getElementById('qt-day-img-preview').innerHTML=''" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button></div></div>` : `<div id="qt-day-img-preview"></div>`}
-        <label for="qt-day-img" class="flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-2.5 cursor-pointer mt-2">
-          <span class="text-xl">📷</span><span class="text-xs text-gray-500">사진 첨부 / 변경 (선택)</span>
-        </label>
-        <input type="file" id="qt-day-img" accept="image/*" capture="environment" class="hidden" onchange="qtDayPreviewImg(this)">
+        <div class="flex gap-2 mt-2">
+          <label for="qt-day-img-cam" class="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-gray-300 rounded-xl p-2.5 cursor-pointer">
+            <span class="text-lg">📷</span><span class="text-xs text-gray-500">카메라</span>
+          </label>
+          <label for="qt-day-img-gallery" class="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-gray-300 rounded-xl p-2.5 cursor-pointer">
+            <span class="text-lg">🖼</span><span class="text-xs text-gray-500">갤러리</span>
+          </label>
+        </div>
+        <input type="file" id="qt-day-img-cam" accept="image/*" capture="environment" class="hidden" onchange="qtDayPreviewImg(this)">
+        <input type="file" id="qt-day-img-gallery" accept="image/*" class="hidden" onchange="qtDayPreviewImg(this)">
       </div>
       <div class="flex gap-2">
         ${qtEditMode ? `<button onclick="qtEditMode=false;renderQTDayView()" class="flex-1 py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500">취소</button>` : ''}
@@ -2379,7 +2628,7 @@ function renderBirthday() {
                       <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)} · <span class="badge-${s.group} px-1 rounded text-xs">${s.group}</span></p>
                     </div>
                   </div>
-                  ${(isLeader() && s.phone)?`<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞 전화</a>`:''}
+                  ${(isLeader() && s.phone)?`<button onclick="callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞 전화</button>`:''}
                 </div>`;
             }).join('')}
           </div>` : '<p class="text-xs text-gray-400 py-2 pl-2">해당 없음</p>'}
@@ -2406,7 +2655,7 @@ function renderBirthday() {
                     <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}</p>
                     <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)}</p>
                   </div>
-                  ${(isLeader() && s.phone)?`<a href="tel:${s.phone}" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞</a>`:''}
+                  ${(isLeader() && s.phone)?`<button onclick="callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞</button>`:''}
                 </div>`;
             }).join('')}
           </div>
@@ -3470,6 +3719,7 @@ function showQRResult(type, msg) {
 // ==========================================
 loadState();
 loadQTImages();
+loadProfiles();
 initKakaoBanner();
 state.month = state.month || '2026-05';
 document.getElementById('header-month').textContent = state.month;
