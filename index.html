@@ -3605,6 +3605,13 @@ document.querySelectorAll('.modal').forEach(m=>{
   m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
 });
 
+// Close topmost open modal on Escape key
+document.addEventListener('keydown', e=>{
+  if (e.key !== 'Escape') return;
+  const open = [...document.querySelectorAll('.modal.open')];
+  if (open.length) open[open.length-1].classList.remove('open');
+});
+
 // ==========================================
 // EXPORT CSV
 // ==========================================
