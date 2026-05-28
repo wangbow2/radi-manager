@@ -1679,27 +1679,36 @@ function updateHeaderUserPhoto() {
 // DASHBOARD
 // ==========================================
 function dlFile(url, name) {
-  const safeUrl = encodeURI(decodeURI(url));
-  const base = location.origin + location.pathname.replace(/[^\/]+$/, '');
-  const absUrl = safeUrl.startsWith('http') ? safeUrl : (base + safeUrl);
+  try {
+    const safeUrl = encodeURI(decodeURI(url));
+    const absUrl = safeUrl.match(/^https?:\/\//)
+      ? safeUrl
+      : 'https://wangbow2.github.io/ladi-manager/' + safeUrl;
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    location.href = absUrl;
-    return;
-  }
-  fetch(absUrl)
-    .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
-    .then(blob => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = name || decodeURIComponent(url.split('/').pop());
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    })
-    .catch(() => { location.href = absUrl; });
+    const ua = navigator.userAgent || '';
+    const isKakao = /KAKAOTALK|kakaoagent/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isMobile = isIOS || /Android/i.test(ua);
+
+    // 디버그: 어떤 URL로 열리는지 확인
+    if (!confirm('열기: ' + absUrl.split('/').pop() + '\n\n브라우저: ' + (isKakao ? '카카오톡' : isMobile ? '모바일' : 'PC'))) return;
+
+    if (isKakao && isIOS) {
+      location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(absUrl);
+      return;
+    }
+    if (isMobile) { location.href = absUrl; return; }
+    fetch(absUrl)
+      .then(r => { if (!r.ok) throw new Error('파일 없음'); return r.blob(); })
+      .then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name || decodeURIComponent(url.split('/').pop());
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      })
+      .catch(e => { alert('오류: ' + e.message); location.href = absUrl; });
+  } catch(e) { alert('오류: ' + e.message); }
 }
 
 function _weeklyFileCard(sunDate, label, admin, extraBtn='') {
