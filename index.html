@@ -1209,25 +1209,35 @@ function renderDashboard() {
   if (isMember()) { renderMemberDashboard(); return; }
   const allStudents = activeStudents();
   const todayBirthdays = allStudents.filter(s=>isToday(s.birthDate));
+  const month = state.month;
+  const monthBirthdays = allStudents.filter(s=>isBirthdayThisMonth(s.birthDate, month))
+    .sort((a,b)=>parseInt(a.birthDate.split('-')[2])-parseInt(b.birthDate.split('-')[2]));
 
   const html = `
-    <div class="space-y-4">
-      ${todayBirthdays.length ? `
-        <div class="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-4 text-white">
-          <p class="text-xs opacity-80 font-semibold mb-1">🎂 오늘의 생일자</p>
-          <p class="text-2xl font-bold">${todayBirthdays.map(s=>s.name).join(', ')}</p>
-          <p class="text-xs opacity-80 mt-1">생일 축하해요! 🎉</p>
-        </div>` : ''}
+    <div class="space-y-3">
+      <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs text-gray-500 font-semibold">🎂 ${getMonthStr(month)} 생일자</p>
+          ${todayBirthdays.length ? `<span class="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">오늘: ${todayBirthdays.map(s=>s.name).join(', ')} 🎂</span>` : ''}
+        </div>
+        ${monthBirthdays.length ? `
+          <div class="flex flex-wrap gap-1.5">
+            ${monthBirthdays.map(s=>`
+              <span class="flex items-center gap-1 text-xs px-2 py-1 rounded-full badge-${s.group} ${isToday(s.birthDate)?'ring-2 ring-pink-400':''}">
+                ${s.name} <span class="opacity-60">${formatBirthDate(s.birthDate)}</span>${isToday(s.birthDate)?'🎂':''}
+              </span>`).join('')}
+          </div>` : '<p class="text-xs text-gray-400">이번 달 생일자 없음</p>'}
+      </div>
 
       ${renderAdminStats()}
 
-      <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <p class="text-xs text-gray-500 font-semibold mb-3">빠른 메뉴</p>
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="navigate('check')" class="bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm">📋 체크표</button>
-          <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl p-3 font-semibold text-sm">📖 말씀 큐티</button>
-          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl p-3 font-semibold text-sm">⭐ 라인업</button>
-          <button onclick="navigate('love')" class="bg-pink-50 text-pink-700 rounded-xl p-3 font-semibold text-sm">💛 사랑 모임</button>
+      <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+        <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
+        <div class="grid grid-cols-4 gap-2">
+          <button onclick="navigate('check')" class="bg-blue-50 text-blue-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">📋<span>체크표</span></button>
+          <button onclick="navigate('qt')" class="bg-purple-50 text-purple-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">📖<span>큐티</span></button>
+          <button onclick="navigate('lineup')" class="bg-green-50 text-green-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">⭐<span>라인업</span></button>
+          <button onclick="navigate('love')" class="bg-pink-50 text-pink-700 rounded-xl py-2.5 font-semibold text-xs flex flex-col items-center gap-1">💛<span>사랑모임</span></button>
         </div>
       </div>
     </div>
@@ -1255,20 +1265,20 @@ function renderAdminStats() {
   const qtAvg = qtCount ? (qtSum / qtCount).toFixed(1) : '-';
 
   return `
-    <div class="bg-white rounded-2xl p-4 shadow-sm">
-      <p class="text-xs text-gray-500 font-semibold mb-3">📊 ${getMonthStr(month)} 통계</p>
+    <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+      <p class="text-xs text-gray-500 font-semibold mb-2">📊 ${getMonthStr(month)} 통계</p>
       <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="bg-blue-50 rounded-xl p-3">
-          <p class="text-xl font-bold text-blue-700">${satTotal ? Math.round(satOk/satTotal*100) : '-'}%</p>
-          <p class="text-xs text-gray-500 mt-1">토요일 출석</p>
+        <div class="bg-blue-50 rounded-xl py-2">
+          <p class="text-lg font-bold text-blue-700">${satTotal ? Math.round(satOk/satTotal*100) : '-'}%</p>
+          <p class="text-xs text-gray-500">토요일</p>
         </div>
-        <div class="bg-purple-50 rounded-xl p-3">
-          <p class="text-xl font-bold text-purple-700">${sunTotal ? Math.round(sunOk/sunTotal*100) : '-'}%</p>
-          <p class="text-xs text-gray-500 mt-1">주일 출석</p>
+        <div class="bg-purple-50 rounded-xl py-2">
+          <p class="text-lg font-bold text-purple-700">${sunTotal ? Math.round(sunOk/sunTotal*100) : '-'}%</p>
+          <p class="text-xs text-gray-500">주일</p>
         </div>
-        <div class="bg-green-50 rounded-xl p-3">
-          <p class="text-xl font-bold text-green-700">${qtAvg}</p>
-          <p class="text-xs text-gray-500 mt-1">QT 평균</p>
+        <div class="bg-green-50 rounded-xl py-2">
+          <p class="text-lg font-bold text-green-700">${qtAvg}</p>
+          <p class="text-xs text-gray-500">QT 평균</p>
         </div>
       </div>
     </div>`;
