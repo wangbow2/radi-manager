@@ -2956,9 +2956,10 @@ function _renderPassageImgSection(dateStr) {
       </div>`;
   } else if (list.length === 2) {
     carouselHtml = `
-      <div class="relative mt-3 rounded-xl overflow-hidden" id="pcarousel-${dateStr}"
-           data-idx="0" data-date="${dateStr}"
-           ontouchstart="pcTouchStart(event,this)" ontouchend="pcTouchEnd(event,this)">
+      <div class="relative mt-3 rounded-xl overflow-hidden outline-none focus:ring-2 focus:ring-purple-400" id="pcarousel-${dateStr}"
+           data-idx="0" data-date="${dateStr}" tabindex="0"
+           ontouchstart="pcTouchStart(event,this)" ontouchend="pcTouchEnd(event,this)"
+           onkeydown="pcKeyDown(event,this)">
         <div class="flex" id="pcarousel-track-${dateStr}" style="transition:transform .25s;will-change:transform">
           <div class="relative w-full flex-shrink-0">
             <img src="${list[0]}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
@@ -2973,6 +2974,7 @@ function _renderPassageImgSection(dateStr) {
           <div id="pdot-0-${dateStr}" class="w-2 h-2 rounded-full bg-purple-500 transition-all"></div>
           <div id="pdot-1-${dateStr}" class="w-2 h-2 rounded-full bg-gray-300 transition-all"></div>
         </div>
+        <p class="text-center text-xs text-gray-300 mt-1">← → 방향키로 넘기기</p>
       </div>`;
   }
 
@@ -3000,10 +3002,16 @@ let _pcTouchX = 0;
 function pcTouchStart(e, el) { _pcTouchX = e.touches[0].clientX; }
 function pcTouchEnd(e, el) {
   const diff = e.changedTouches[0].clientX - _pcTouchX;
+  if (diff < -40) pcGo(el, 1);
+  else if (diff > 40) pcGo(el, -1);
+}
+function pcKeyDown(e, el) {
+  if (e.key === 'ArrowRight') { pcGo(el, 1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { pcGo(el, -1); e.preventDefault(); }
+}
+function pcGo(el, dir) {
   const dateStr = el.dataset.date;
-  let idx = parseInt(el.dataset.idx || '0');
-  if (diff < -40) idx = Math.min(1, idx + 1);
-  else if (diff > 40) idx = Math.max(0, idx - 1);
+  let idx = Math.max(0, Math.min(1, parseInt(el.dataset.idx || '0') + dir));
   el.dataset.idx = idx;
   const track = document.getElementById(`pcarousel-track-${dateStr}`);
   if (track) track.style.transform = `translateX(-${idx * 100}%)`;
