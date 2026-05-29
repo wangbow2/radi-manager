@@ -611,6 +611,16 @@
   </div>
 </div>
 
+<!-- 프로필 보기 모달 -->
+<div id="modal-profile-view" class="modal" onclick="if(event.target===this)closeModal('modal-profile-view')">
+  <div class="bg-white rounded-2xl w-full max-w-sm mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+    <div class="flex items-center justify-end p-3 flex-shrink-0">
+      <button onclick="closeModal('modal-profile-view')" class="text-gray-400 text-2xl leading-none w-8 h-8 flex items-center justify-center">×</button>
+    </div>
+    <div id="profile-view-body" class="overflow-y-auto px-4 pb-6"></div>
+  </div>
+</div>
+
 <script>
 // ==========================================
 // INITIAL DATA
@@ -1715,6 +1725,52 @@ function zoomProfilePhoto(uid) {
   openModal('modal-photo-zoom');
 }
 
+function openProfileView(studentId) {
+  const s = state.students.find(x => x.id === studentId);
+  if (!s) return;
+  const p = profiles[studentId] || {};
+  const photo = p.photo || null;
+  const photoBg = photo ? `background-image:url(${photo});background-size:cover;background-position:center` : '';
+  const photoInner = photo ? '' : `<span class="text-4xl font-bold text-purple-400">${s.name[0]}</span>`;
+
+  const rows = [
+    ['학교', p.school],
+    ['고등부 반', p.grade_class],
+    ['포지션', p.position || (s.role || s.instrument || '')],
+    ['MBTI', p.mbti],
+    ['좋아하는 찬양', p.fave_song],
+    ['취미', p.hobby],
+    ['특기', p.special],
+    ['3대 총합', p.three_rm],
+    ['마지막 한 마디', p.last_word],
+  ].filter(([,v]) => v);
+
+  const hasContent = rows.length || p.intro;
+
+  document.getElementById('profile-view-body').innerHTML = `
+    <div class="text-center mb-5">
+      <div class="w-28 h-28 rounded-full bg-purple-100 mx-auto overflow-hidden flex items-center justify-center mb-3${photo ? ' cursor-pointer shadow-lg' : ''}" style="${photoBg}" ${photo ? `onclick="zoomProfilePhoto('${studentId}')"` : ''}>${photoInner}</div>
+      <h2 class="font-bold text-xl text-gray-800">${s.name}</h2>
+      <p class="text-sm text-gray-400 mt-0.5"><span class="badge-${s.group} px-2 py-0.5 rounded-full text-xs font-semibold">${s.group}</span> · ${s.grade || ''}</p>
+    </div>
+    ${rows.length ? `
+    <div class="bg-gray-50 rounded-2xl p-4 divide-y divide-gray-100 mb-3">
+      ${rows.map(([k,v]) => `
+        <div class="flex items-start justify-between py-2.5 first:pt-0 last:pb-0">
+          <span class="text-xs text-gray-400 w-24 flex-shrink-0 pt-0.5">${k}</span>
+          <span class="text-sm text-gray-800 text-right break-words max-w-[60%]">${v.replace(/</g,'&lt;')}</span>
+        </div>`).join('')}
+    </div>` : ''}
+    ${p.intro ? `
+    <div class="bg-gray-50 rounded-2xl p-4 mb-3">
+      <p class="text-xs font-bold text-purple-400 mb-2">자기소개</p>
+      <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${p.intro.replace(/</g,'&lt;')}</p>
+    </div>` : ''}
+    ${!hasContent ? `<p class="text-center text-gray-400 text-sm py-6">아직 프로필을 작성하지 않았어요</p>` : ''}
+  `;
+  openModal('modal-profile-view');
+}
+
 function updateHeaderUserPhoto() {
   const u = getCurrentUser();
   if (!u) return;
@@ -2094,8 +2150,18 @@ function renderMemberDashboard() {
     <div class="space-y-3">
       ${todayBirthdays.length ? `
         <div class="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl px-4 py-2.5 text-white">
-          <p class="text-xs opacity-80 font-semibold">🎂 오늘의 생일자</p>
-          <p class="text-base font-bold">${todayBirthdays.map(s=>s.name).join(', ')} 🎉</p>
+          <p class="text-xs opacity-80 font-semibold mb-1">🎂 오늘의 생일자</p>
+          <div class="flex flex-wrap gap-2">
+            ${todayBirthdays.map(s => {
+              const ph = profiles[s.id]?.photo;
+              return `<button onclick="openProfileView('${s.id}')" class="flex items-center gap-2 bg-white/20 rounded-full px-2 py-1 active:bg-white/30">
+                <div class="w-7 h-7 rounded-full bg-white/30 flex items-center justify-center overflow-hidden flex-shrink-0 font-bold text-sm" style="${ph?`background-image:url(${ph});background-size:cover;background-position:center`:''}">
+                  ${ph?'':`<span>${s.name[0]}</span>`}
+                </div>
+                <span class="font-bold text-sm">${s.name} 🎉</span>
+              </button>`;
+            }).join('')}
+          </div>
         </div>` : ''}
 
       <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
@@ -3069,16 +3135,20 @@ function renderBirthday() {
             ${ms.map(s=>{
               const todayFlag = isToday(s.birthDate);
               const weekFlag = isBirthdayThisWeek(s.birthDate);
+              const hasProfile = !!(profiles[s.id]?.photo || profiles[s.id]?.intro || profiles[s.id]?.mbti || profiles[s.id]?.hobby);
+              const avatarPhoto = profiles[s.id]?.photo;
+              const avatarStyle = avatarPhoto ? `background-image:url(${avatarPhoto});background-size:cover;background-position:center` : '';
+              const avatarInner = avatarPhoto ? '' : `<span class="font-bold text-sm">${s.name[0]}</span>`;
               return `
-                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0 ${todayFlag?'bg-pink-50 birthday-today':weekFlag?'bg-yellow-50':''}">
+                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0 ${todayFlag?'bg-pink-50 birthday-today':weekFlag?'bg-yellow-50':''} cursor-pointer active:bg-gray-50" onclick="openProfileView('${s.id}')">
                   <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-full badge-${s.group} flex items-center justify-center font-bold text-sm">${s.name[0]}</div>
+                    <div class="w-9 h-9 rounded-full badge-${s.group} flex items-center justify-center overflow-hidden flex-shrink-0" style="${avatarStyle}">${avatarInner}</div>
                     <div>
-                      <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}</p>
+                      <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}${hasProfile?'<span class="text-xs text-purple-400 ml-1">👤</span>':''}</p>
                       <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)} · <span class="badge-${s.group} px-1 rounded text-xs">${s.group}</span></p>
                     </div>
                   </div>
-                  ${(isLeader() && s.phone)?`<button onclick="callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞 전화</button>`:''}
+                  ${(isLeader() && s.phone)?`<button onclick="event.stopPropagation();callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full flex-shrink-0">📞 전화</button>`:''}
                 </div>`;
             }).join('')}
           </div>` : '<p class="text-xs text-gray-400 py-2 pl-2">해당 없음</p>'}
@@ -3100,12 +3170,15 @@ function renderBirthday() {
             ${gs.map(s=>{
               const todayFlag = isToday(s.birthDate);
               return `
-                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0 group-${g} ${todayFlag?'birthday-today':''}">
-                  <div>
-                    <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}</p>
-                    <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)}</p>
+                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0 group-${g} ${todayFlag?'birthday-today':''} cursor-pointer active:bg-gray-50" onclick="openProfileView('${s.id}')">
+                  <div class="flex items-center gap-3">
+                    ${(()=>{ const ph=profiles[s.id]?.photo; return `<div class="w-9 h-9 rounded-full badge-${g} flex items-center justify-center overflow-hidden flex-shrink-0" style="${ph?`background-image:url(${ph});background-size:cover;background-position:center`:''}">` + (ph?'':`<span class="font-bold text-sm">${s.name[0]}</span>`) + '</div>'; })()}
+                    <div>
+                      <p class="font-semibold text-sm text-gray-800">${s.name} ${todayFlag?'🎂':''}${(profiles[s.id]?.photo||profiles[s.id]?.intro||profiles[s.id]?.mbti)?'<span class="text-xs text-purple-400 ml-1">👤</span>':''}</p>
+                      <p class="text-xs text-gray-500">${formatBirthDate(s.birthDate)}</p>
+                    </div>
                   </div>
-                  ${(isLeader() && s.phone)?`<button onclick="callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">📞</button>`:''}
+                  ${(isLeader() && s.phone)?`<button onclick="event.stopPropagation();callPhone('${s.phone}')" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full flex-shrink-0">📞</button>`:''}
                 </div>`;
             }).join('')}
           </div>
