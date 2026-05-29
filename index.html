@@ -809,7 +809,7 @@ const QT_SCHEDULE = {
 };
 
 const WEEKS_LABEL = ['1주차','2주차','3주차','4주차','5주차'];
-const ATTENDANCE_OPTIONS = ['O','지각','결석','불가','가족여행','학교행사','대회','자격증시험','기타'];
+const ATTENDANCE_OPTIONS = ['O','지각','결석','가족여행','학교행사','대회','자격증시험','기타'];
 const QT_OPTIONS = ['5','4','3','2','1','0','X',''];
 const GATE_OPTIONS = ['O','X',''];
 
@@ -1086,6 +1086,7 @@ function initFirestore() {
 // IMAGE STORAGE (separate from main state)
 // ==========================================
 let qtImages = {};
+let qtPassageImages = {}; // { dateStr: { img0: base64, img1: base64 } }
 let profiles = {};
 
 function loadProfiles() {
@@ -1104,6 +1105,31 @@ function loadQTImages() {
 function saveQTImages() {
   try { localStorage.setItem('radi_qt_images', JSON.stringify(qtImages)); }
   catch(e) { alert('저장 공간이 부족해요. 이전 이미지를 삭제해 주세요.'); }
+}
+
+function loadQTPassageImages() {
+  try { const d = localStorage.getItem('radi_qt_passage_images'); if (d) qtPassageImages = JSON.parse(d); } catch(e) { qtPassageImages = {}; }
+}
+
+function saveQTPassageImageLocal() {
+  try { localStorage.setItem('radi_qt_passage_images', JSON.stringify(qtPassageImages)); }
+  catch(e) {}
+}
+
+function saveQTPassageImageToFirestore(dateStr) {
+  if (!isAdmin()) return;
+  const imgs = qtPassageImages[dateStr] || {};
+  _db.collection('passageImages').doc(dateStr).set(imgs).catch(e => console.warn('이미지 저장 실패:', e));
+  saveQTPassageImageLocal();
+}
+
+async function loadQTPassageImageForDay(dateStr) {
+  if (qtPassageImages[dateStr] !== undefined) return;
+  try {
+    const doc = await _db.collection('passageImages').doc(dateStr).get();
+    qtPassageImages[dateStr] = doc.exists ? doc.data() : {};
+    saveQTPassageImageLocal();
+  } catch(e) { qtPassageImages[dateStr] = {}; }
 }
 
 function compressImage(file, callback) {
@@ -2775,6 +2801,14 @@ function renderQTDayView() {
   const passage = QT_SCHEDULE[dateStr];
   if (!passage) { closeQTDay(); return; }
 
+  // 이미지가 아직 로드 안 됐으면 Firestore에서 가져와 재렌더
+  if (qtPassageImages[dateStr] === undefined) {
+    loadQTPassageImageForDay(dateStr).then(() => {
+      const el = document.getElementById(`qt-passage-imgs-${dateStr}`);
+      if (el) el.innerHTML = _renderPassageImgSection(dateStr);
+    });
+  }
+
   const d = new Date(dateStr + 'T00:00:00');
   const DAYS = ['일','월','화','수','목','금','토'];
   const dateLabel = `${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})`;
@@ -2876,6 +2910,7 @@ function renderQTDayView() {
             <p class="text-xs font-semibold text-amber-700 mb-1.5">📖 개역개정</p>
             <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">${(state.qtPassageTexts)[dateStr]}</p>
           </div>` : (isLeader() ? '<p class="text-xs text-gray-300 mt-2">본문 편집 버튼으로 개역개정 본문을 입력할 수 있습니다</p>' : '')}
+        <div id="qt-passage-imgs-${dateStr}" class="mt-3">${_renderPassageImgSection(dateStr)}</div>
       </div>
       <div class="bg-white rounded-2xl p-4 shadow-sm">
         <p class="text-xs font-semibold text-gray-500 mb-3">내 큐티 기록</p>
@@ -2905,6 +2940,64 @@ function savePassageText() {
   saveState();
   closeModal('modal-passage');
   renderQTDayView();
+}
+
+function _renderPassageImgSection(dateStr) {
+  const imgs = qtPassageImages[dateStr] || {};
+  const hasImg = imgs.img0 || imgs.img1;
+  const imgHtml = (hasImg) ? `
+    <div class="flex gap-2">
+      ${imgs.img0 ? `<div class="relative flex-1"><img src="${imgs.img0}" class="w-full rounded-xl object-cover cursor-pointer" style="max-height:180px" onclick="zoomPassageImage('${dateStr}',0)">${isAdmin()?`<button onclick="removePassageImage('${dateStr}',0)" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</button>`:''}` + '</div>' : ''}
+      ${imgs.img1 ? `<div class="relative flex-1"><img src="${imgs.img1}" class="w-full rounded-xl object-cover cursor-pointer" style="max-height:180px" onclick="zoomPassageImage('${dateStr}',1)">${isAdmin()?`<button onclick="removePassageImage('${dateStr}',1)" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</button>`:''}` + '</div>' : ''}
+    </div>` : '';
+
+  if (!isAdmin()) return imgHtml;
+
+  const slotCount = Object.keys(imgs).length;
+  const uploadBtns = (!imgs.img0 || !imgs.img1) ? `
+    <div class="flex gap-2 mt-2">
+      ${!imgs.img0 ? `
+        <label class="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-blue-200 rounded-xl p-2 cursor-pointer text-blue-400 text-xs">
+          📷 이미지 1
+          <input type="file" accept="image/*" class="hidden" onchange="uploadPassageImage(this,'${dateStr}',0)">
+        </label>` : ''}
+      ${!imgs.img1 ? `
+        <label class="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-blue-200 rounded-xl p-2 cursor-pointer text-blue-400 text-xs">
+          📷 이미지 2
+          <input type="file" accept="image/*" class="hidden" onchange="uploadPassageImage(this,'${dateStr}',1)">
+        </label>` : ''}
+    </div>` : '';
+
+  return imgHtml + uploadBtns;
+}
+
+function uploadPassageImage(input, dateStr, slot) {
+  if (!input.files?.[0] || !isAdmin()) return;
+  compressImage(input.files[0], data => {
+    if (!qtPassageImages[dateStr]) qtPassageImages[dateStr] = {};
+    qtPassageImages[dateStr][`img${slot}`] = data;
+    saveQTPassageImageToFirestore(dateStr);
+    const el = document.getElementById(`qt-passage-imgs-${dateStr}`);
+    if (el) el.innerHTML = _renderPassageImgSection(dateStr);
+  });
+}
+
+function removePassageImage(dateStr, slot) {
+  if (!isAdmin()) return;
+  if (qtPassageImages[dateStr]) {
+    delete qtPassageImages[dateStr][`img${slot}`];
+    if (!Object.keys(qtPassageImages[dateStr]).length) delete qtPassageImages[dateStr];
+  }
+  saveQTPassageImageToFirestore(dateStr);
+  const el = document.getElementById(`qt-passage-imgs-${dateStr}`);
+  if (el) el.innerHTML = _renderPassageImgSection(dateStr);
+}
+
+function zoomPassageImage(dateStr, slot) {
+  const src = (qtPassageImages[dateStr] || {})[`img${slot}`];
+  if (!src) return;
+  document.getElementById('photo-zoom-img').src = src;
+  openModal('modal-photo-zoom');
 }
 
 let _qtDayPendingImg = null;
@@ -4289,6 +4382,7 @@ function showQRResult(type, msg) {
 // ==========================================
 loadState();
 loadQTImages();
+loadQTPassageImages();
 loadProfiles();
 initKakaoBanner();
 state.month = state.month || '2026-05';
