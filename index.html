@@ -3628,19 +3628,13 @@ function renderLineupSelection() {
       return `<button ${clickAttr} class="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${btnClass} ${canEdit ? 'active:scale-95' : ''}" ${extraStyle}>${inner}</button>`;
     }).join('');
 
-    const confirmKey = `${month}_w${weekIdx}_${svc}_${g}`;
-    const isConfirmed = !!state.lineupConfirmed[confirmKey];
     return `
       <div class="mb-5">
         <div class="flex items-center gap-2 mb-2 flex-wrap">
           <span class="badge-${g} text-xs font-bold px-2 py-0.5 rounded-full">${g}</span>
           <span class="text-xs text-gray-400">${gIn}/${members.length}명</span>
           ${restrictedCount ? `<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">⚠️ ${restrictedCount}명 확인필요</span>` : ''}
-          ${isConfirmed ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✅ 최종확정</span>` : ''}
-          ${canEdit ? `<button onclick="toggleLineupConfirm('${confirmKey}')"
-            class="ml-auto text-xs px-3 py-1 rounded-lg font-bold ${isConfirmed ? 'bg-gray-200 text-gray-600' : 'bg-purple-600 text-white'}">
-            ${isConfirmed ? '확정 취소' : '최종명단 확정'}
-          </button>` : ''}
+          ${canEdit ? `<button onclick="resetLineupGroup('${g}')" class="ml-auto text-xs text-red-400 border border-red-200 px-2 py-0.5 rounded-lg active:bg-red-50">${g} 리셋</button>` : ''}
         </div>
         <div class="flex flex-wrap gap-2">${chips}</div>
       </div>`;
@@ -3653,7 +3647,6 @@ function renderLineupSelection() {
           <span class="text-xs text-gray-400 font-normal ml-1">토 ${week.satDate.slice(5)} / 주 ${week.sunDate.slice(5)}</span>
         </h3>
         <span class="lineup-가능 text-xs px-2 py-0.5 rounded-full">${totalIn}명 선택</span>
-        ${canEdit ? `<button onclick="resetLineup()" class="text-xs text-red-500 border border-red-200 px-2 py-0.5 rounded-lg active:bg-red-50">리셋</button>` : ''}
       </div>
       ${canEdit ? '<p class="text-xs text-purple-500 mb-3">탭 = 선택/해제 | ⚠️ 흐린 이름 = 목양 확인 필요 (팀장만 승인 가능)</p>' : ''}
       ${groupBlocks}
@@ -3679,14 +3672,31 @@ function resetLineup() {
   const weeks = getMonthWeeks(month);
   const weekIdx = weeks.length - 1;
   const svc = lineupService;
-  // Remove all lineup keys for this week+service
   Object.keys(state.lineups).forEach(k => {
     if (k.includes(`_${month}_w${weekIdx}_${svc}`)) delete state.lineups[k];
   });
-  // Remove confirm keys too
   Object.keys(state.lineupConfirmed).forEach(k => {
     if (k.startsWith(`${month}_w${weekIdx}_${svc}`)) delete state.lineupConfirmed[k];
   });
+  saveState();
+  renderLineupSelection();
+}
+
+function resetLineupGroup(group) {
+  if (!isLeader()) return;
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const weekIdx = weeks.length - 1;
+  const svc = lineupService;
+  const base = activeStudents().filter(s => s.group === group);
+  const extra = (LINEUP_GROUP_LEADERS[group]||[]).map(id => state.students.find(s => s.id === id)).filter(Boolean);
+  [...base, ...extra].forEach(s => {
+    const k1 = `${s.id}_${month}_w${weekIdx}_${svc}`;
+    const k2 = `${s.id}@${group}_${month}_w${weekIdx}_${svc}`;
+    delete state.lineups[k1];
+    delete state.lineups[k2];
+  });
+  delete state.lineupConfirmed[`${month}_w${weekIdx}_${svc}_${group}`];
   saveState();
   renderLineupSelection();
 }
@@ -3703,7 +3713,7 @@ function toggleLineupKey(key, studentId) {
   } else {
     delete state.lineups[key];
   }
-  saveState();
+  _fsSaveDebounced();
   renderLineupSelection();
 }
 
