@@ -976,6 +976,7 @@ function saveState() {
     _phoneMigrated2026: state._phoneMigrated2026,
     _birthMigrated2026: state._birthMigrated2026,
     _r11BirthFixed: state._r11BirthFixed,
+    _sat5w4Fixed: state._sat5w4Fixed,
     weeklyFiles: state.weeklyFiles,
     feedbacks: state.feedbacks,
     page: state.page,
@@ -1024,6 +1025,7 @@ function _getFsData() {
     _phoneMigrated2026: state._phoneMigrated2026,
     _birthMigrated2026: state._birthMigrated2026,
     _r11BirthFixed: state._r11BirthFixed,
+    _sat5w4Fixed: state._sat5w4Fixed,
     weeklyFiles: state.weeklyFiles,
     feedbacks: state.feedbacks,
   };
@@ -1086,6 +1088,19 @@ function initFirestore() {
         state._birthMigrated2026 = true;
         _ignoreSnapshot = true;
         _stateRef.update({ students: state.students, _r11BirthFixed: true, _birthMigrated2026: true }).catch(e => {});
+      }
+
+      // 5월 5주차(w4) 토요일 — 지각/결석 제외 전원 O
+      if (!state._sat5w4Fixed) {
+        state.students.filter(s => s.status === '활동중').forEach(s => {
+          const key = `${s.id}_2026-05_w4`;
+          if (!state.checks[key]) state.checks[key] = { qt:'', gate:'', sat:'', sun:'', memo:'' };
+          const cur = state.checks[key].sat;
+          if (cur !== '지각' && cur !== '결석') state.checks[key].sat = 'O';
+        });
+        state._sat5w4Fixed = true;
+        _ignoreSnapshot = true;
+        _stateRef.update({ checks: state.checks, _sat5w4Fixed: true }).catch(e => {});
       }
 
       if (state.currentUser) {
