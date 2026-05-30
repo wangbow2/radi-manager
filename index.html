@@ -85,7 +85,7 @@
       <h1 class="text-lg font-bold cursor-pointer active:opacity-70" onclick="navigate('dashboard')">수영로 LADI</h1>
     </div>
     <div class="flex items-center gap-2">
-      <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
+      <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-06</div>
       <button id="header-user-btn" onclick="showUserMenu()" class="flex items-center gap-1 bg-purple-600 px-2 py-1 rounded-full text-sm">
         <div class="header-user-icon w-5 h-5 rounded-full bg-purple-400 overflow-hidden flex items-center justify-center text-xs font-bold" id="header-user-icon"></div>
         <span id="header-user-name" class="text-xs max-w-16 truncate"></span>
@@ -124,8 +124,8 @@
         <button onclick="selectCheckMonth('2026-02')" data-cm="2026-02" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">2월</button>
         <button onclick="selectCheckMonth('2026-03')" data-cm="2026-03" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">3월</button>
         <button onclick="selectCheckMonth('2026-04')" data-cm="2026-04" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">4월</button>
-        <button onclick="selectCheckMonth('2026-05')" data-cm="2026-05" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-purple-600 text-white">5월</button>
-        <button onclick="selectCheckMonth('2026-06')" data-cm="2026-06" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">6월</button>
+        <button onclick="selectCheckMonth('2026-05')" data-cm="2026-05" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">5월</button>
+        <button onclick="selectCheckMonth('2026-06')" data-cm="2026-06" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-purple-600 text-white">6월</button>
         <button onclick="selectCheckMonth('2026-07')" data-cm="2026-07" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">7월</button>
         <button onclick="selectCheckMonth('2026-08')" data-cm="2026-08" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">8월</button>
         <button onclick="selectCheckMonth('2026-09')" data-cm="2026-09" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">9월</button>
@@ -1197,7 +1197,7 @@ function doLogin() {
     errEl.classList.remove('hidden');
     return;
   }
-  const stored = state.pins[studentId] || '0000';
+  const stored = (state.pins && state.pins[studentId]) ? state.pins[studentId] : '0000';
   if (pin === stored) {
     state.currentUser = studentId;
     saveState();
@@ -1293,6 +1293,9 @@ function doChangePIN() {
   if (newPin !== confirm) { errEl.textContent = '새 PIN이 일치하지 않습니다'; errEl.classList.remove('hidden'); return; }
   state.pins[state.currentUser] = newPin;
   saveState();
+  // Firestore에 즉시 반영
+  _ignoreSnapshot = true;
+  _stateRef.update({ pins: state.pins }).catch(() => {});
   errEl.classList.add('hidden');
   ['pin-current','pin-new','pin-confirm'].forEach(id => document.getElementById(id).value = '');
   closeModal('modal-pin');
@@ -1535,6 +1538,7 @@ function navigate(page, extra, isBack) {
     navHistory.push({ page: state.page, extra: null });
     if (navHistory.length > 20) navHistory.shift();
   }
+  if (!isBack) history.pushState({ page, extra }, '', location.pathname + location.search);
   if (page === 'dashboard') navHistory = [];
   if (state.page === 'qr' && page !== 'qr') stopQRCamera();
   state.page = page;
@@ -1559,6 +1563,14 @@ function navigate(page, extra, isBack) {
   updateBackBtn();
   window.scrollTo(0,0);
 }
+
+window.addEventListener('popstate', e => {
+  const s = e.state;
+  if (s && s.page) {
+    if (navHistory.length) navHistory.pop();
+    navigate(s.page, s.extra, true);
+  }
+});
 
 // ==========================================
 // MYPAGE
@@ -3513,6 +3525,7 @@ function renderLineupSelection() {
           <span class="text-xs text-gray-400 font-normal ml-1">토 ${week.satDate.slice(5)} / 주 ${week.sunDate.slice(5)}</span>
         </h3>
         <span class="lineup-가능 text-xs px-2 py-0.5 rounded-full">${totalIn}명 선택</span>
+        ${canEdit ? `<button onclick="resetLineup()" class="text-xs text-red-500 border border-red-200 px-2 py-0.5 rounded-lg active:bg-red-50">리셋</button>` : ''}
       </div>
       ${canEdit ? '<p class="text-xs text-purple-500 mb-3">탭 = 선택/해제 | ⚠️ 흐린 이름 = 목양 확인 필요 (팀장만 승인 가능)</p>' : ''}
       ${groupBlocks}
@@ -3527,6 +3540,25 @@ function toggleLineupConfirm(confirmKey) {
     state.lineupConfirmed[confirmKey] = { confirmedAt: Date.now(), confirmedBy: state.currentUser };
     addEditLog(`라인업 최종확정: ${confirmKey}`);
   }
+  saveState();
+  renderLineupSelection();
+}
+
+function resetLineup() {
+  if (!isLeader()) return;
+  if (!confirm('이번 주 라인업을 모두 초기화할까요?')) return;
+  const month = state.month;
+  const weeks = getMonthWeeks(month);
+  const weekIdx = weeks.length - 1;
+  const svc = lineupService;
+  // Remove all lineup keys for this week+service
+  Object.keys(state.lineups).forEach(k => {
+    if (k.includes(`_${month}_w${weekIdx}_${svc}`)) delete state.lineups[k];
+  });
+  // Remove confirm keys too
+  Object.keys(state.lineupConfirmed).forEach(k => {
+    if (k.startsWith(`${month}_w${weekIdx}_${svc}`)) delete state.lineupConfirmed[k];
+  });
   saveState();
   renderLineupSelection();
 }
@@ -3812,6 +3844,9 @@ function processScannedQR(qrData) {
 
   state.qrUsage[tokenKey] = { timestamp: Date.now(), userId: state.currentUser };
   saveState();
+  // 즉시 Firestore에 저장 (debounce 무시)
+  _ignoreSnapshot = true;
+  _stateRef.update({ checks: state.checks, qrUsage: state.qrUsage }).catch(() => {});
 
   const me = getCurrentUser();
   if (resultEl) resultEl.innerHTML = `
@@ -4446,7 +4481,8 @@ loadQTImages();
 loadQTPassageImages();
 loadProfiles();
 initKakaoBanner();
-state.month = state.month || '2026-05';
+if (!state.month || state.month === '2026-05') state.month = '2026-06';
+
 document.getElementById('header-month').textContent = state.month;
 initFirestore();
 
@@ -4458,7 +4494,7 @@ if (location.search.includes('qr=')) {
   document.getElementById('login-screen').style.display = 'none';
   updateHeaderUser();
   updateNav();
-  navigate('dashboard');
+  navigate(state.page && state.page !== 'dashboard' ? state.page : 'dashboard');
 } else {
   showLoginScreen();
 }
