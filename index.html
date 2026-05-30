@@ -3972,6 +3972,15 @@ function setQRType(type) {
   qrType = type;
   document.getElementById('qr-sat').className = `flex-1 py-2 rounded-lg text-sm font-semibold ${type==='토요일'?'bg-purple-600 text-white':'bg-gray-200 text-gray-700'}`;
   document.getElementById('qr-sun').className = `flex-1 py-2 rounded-lg text-sm font-semibold ${type==='주일'?'bg-purple-600 text-white':'bg-gray-200 text-gray-700'}`;
+  if (type === '주일') {
+    document.getElementById('qr-start').value = '07:50';
+    document.getElementById('qr-end').value = '08:10';
+    document.getElementById('qr-late').value = '08:11';
+  } else {
+    document.getElementById('qr-start').value = '10:30';
+    document.getElementById('qr-end').value = '11:05';
+    document.getElementById('qr-late').value = '11:05';
+  }
 }
 
 function generateQR() {
