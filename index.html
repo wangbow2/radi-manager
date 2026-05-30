@@ -1385,6 +1385,21 @@ function toggleGate(studentId, weekIdx) {
   renderCheckTable();
 }
 
+function quickToggleAttendance(studentId, weekIdx, field) {
+  if (!isLeader()) return;
+  const c = getCheck(studentId, state.month, weekIdx);
+  const cur = c[field] || '';
+  const cycle = ['', 'O', '지각', '결석'];
+  const idx = cycle.indexOf(cur);
+  const next = cycle[(idx + 1) % cycle.length];
+  addEditLog('check', studentId, `${state.month}_w${weekIdx}`, field, cur, next, '');
+  setCheck(studentId, state.month, weekIdx, {...c, [field]: next});
+  renderCheckTable();
+  // 학생 시트가 열려있으면 해당 행만 갱신
+  const body = document.getElementById('student-check-sheet-body');
+  if (body && window._sheetMakeRows) body.innerHTML = window._sheetMakeRows();
+}
+
 function openStudentCheckSheet(studentId) {
   if (!isLeader()) { navigate('detail', {currentStudentId: studentId}); return; }
   const s = state.students.find(x => x.id === studentId);
@@ -1401,9 +1416,9 @@ function openStudentCheckSheet(studentId) {
         ? `<div class="check-cell st-빈칸 text-gray-300 no-edit">-</div>`
         : `<div class="check-cell ${c.gate==='O'?'st-O':c.gate==='X'?'st-X':'st-빈칸'}" onclick="toggleGateSheet('${studentId}',${wi})">${c.gate||'·'}</div>`
       }</td>
-      <td class="px-0.5"><div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" onclick="closeSheet();openCheckModal('${studentId}',${wi},'sat')">${c.sat||'·'}</div></td>
-      <td class="px-0.5"><div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" onclick="closeSheet();openCheckModal('${studentId}',${wi},'sun')">${c.sun||'·'}</div></td>
-      <td class="px-1">${weekTrafficLightHtml(c)}</td>
+      <td class="px-0.5"><div class="check-cell ${c.sat?`st-${c.sat}`:'st-빈칸'}" onclick="quickToggleAttendance('${studentId}',${wi},'sat')">${c.sat||'·'}</div></td>
+      <td class="px-0.5"><div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" onclick="quickToggleAttendance('${studentId}',${wi},'sun')">${c.sun||'·'}</div></td>
+      <td class="px-1" onclick="closeSheet();openCheckModal('${studentId}',${wi},'sat')" style="cursor:pointer">${weekTrafficLightHtml(c)}</td>
     </tr>`;
   }).join('');
 
@@ -2621,8 +2636,8 @@ function renderCheckTableView(month, weeks) {
       const c = getCheck(s.id, month, wi);
       const clickQT  = canEdit ? `onclick="openCheckModal('${s.id}',${wi},'qt')"` : '';
       const clickGate= canEdit && !isLeaderGroup ? `onclick="toggleGate('${s.id}',${wi})"` : '';
-      const clickSat = canEdit ? `onclick="openCheckModal('${s.id}',${wi},'sat')"` : '';
-      const clickSun = canEdit ? `onclick="openCheckModal('${s.id}',${wi},'sun')"` : '';
+      const clickSat = canEdit ? `onclick="quickToggleAttendance('${s.id}',${wi},'sat')"` : '';
+      const clickSun = canEdit ? `onclick="quickToggleAttendance('${s.id}',${wi},'sun')"` : '';
       rows += `<tr class="hover:bg-gray-50 group-${g}" style="opacity:0.95">
         <td class="sticky left-0 px-3 py-2 font-semibold text-sm text-gray-800 group-${g} cursor-pointer" onclick="openStudentCheckSheet('${s.id}')">${s.name}</td>
         <td class="px-1 py-2"><span class="badge-${g} text-xs px-1 py-0.5 rounded font-semibold">${g[0]}</span></td>
@@ -2640,7 +2655,7 @@ function renderCheckTableView(month, weeks) {
         <td class="px-0.5 py-1">
           <div class="check-cell ${c.sun?`st-${c.sun}`:'st-빈칸'}" ${clickSun}>${c.sun||'·'}</div>
         </td>
-        <td class="px-1 py-1 text-center">${weekTrafficLightHtml(c)}</td>
+        <td class="px-1 py-1 text-center" ${canEdit ? `onclick="openCheckModal('${s.id}',${wi},'sat')"` : ''} style="${canEdit?'cursor:pointer':''}">${weekTrafficLightHtml(c)}</td>
       </tr>`;
     });
   });
