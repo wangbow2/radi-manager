@@ -843,6 +843,7 @@ let state = {
   loveMeetingRecords: {},
   qrUsage: {},
   weeklyFiles: {},
+  feedbacks: [],
 };
 
 let tempCheck = {};
@@ -876,6 +877,7 @@ function loadState() {
   if (!state.lineupConfirmed) state.lineupConfirmed = {};
   if (!state.qtPassageTexts) state.qtPassageTexts = {};
   if (!state.weeklyFiles) state.weeklyFiles = {};
+  if (!state.feedbacks) state.feedbacks = [];
   if (!state._may2026Attendance) {
     const mo = '2026-05';
     // 황영환(t1), 김예찬(t3), 정민지(t4), 정여명(t5) — 전 주차 토/주일 O
@@ -974,6 +976,8 @@ function saveState() {
     _phoneMigrated2026: state._phoneMigrated2026,
     _birthMigrated2026: state._birthMigrated2026,
     weeklyFiles: state.weeklyFiles,
+    feedbacks: state.feedbacks,
+    page: state.page,
   }));
   _fsSaveDebounced();
 }
@@ -1019,6 +1023,7 @@ function _getFsData() {
     _phoneMigrated2026: state._phoneMigrated2026,
     _birthMigrated2026: state._birthMigrated2026,
     weeklyFiles: state.weeklyFiles,
+    feedbacks: state.feedbacks,
   };
 }
 
@@ -1069,6 +1074,16 @@ function initFirestore() {
         _ignoreSnapshot = true;
         _stateRef.update({ qtPassageTexts: localPassages }).catch(e => {});
         state.qtPassageTexts = localPassages;
+      }
+
+      // Firestore 로드 후 마이그레이션: 손예서 생일
+      if (!state._birthMigrated2026) {
+        const s = state.students.find(x => x.id === 'r11');
+        if (s) s.birthDate = '01-05';
+        state._birthMigrated2026 = true;
+        _ignoreSnapshot = true;
+        _stateRef.update({ students: state.students, _birthMigrated2026: true }).catch(e => {});
+        localStorage.setItem('radi_v4', JSON.stringify({...JSON.parse(localStorage.getItem('radi_v4')||'{}'), students: state.students, _birthMigrated2026: true}));
       }
 
       if (state.currentUser) {
@@ -2059,6 +2074,72 @@ function saveWeeklyFiles(month, wk) {
   renderDashboard();
 }
 
+// ==========================================
+// FEEDBACK
+// ==========================================
+function submitFeedback() {
+  const inp = document.getElementById('feedback-input');
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  const me = activeStudents().find(s => s.id === state.currentUser);
+  if (!me) return;
+  const fb = { id: Date.now() + '_' + Math.random().toString(36).slice(2,6), userId: state.currentUser, name: me.name, group: me.group||'', text, createdAt: Date.now() };
+  if (!state.feedbacks) state.feedbacks = [];
+  state.feedbacks.unshift(fb);
+  inp.value = '';
+  saveState();
+  renderFeedbackList();
+}
+
+function deleteFeedback(fbId) {
+  if (!state.feedbacks) return;
+  const fb = state.feedbacks.find(f => f.id === fbId);
+  if (!fb) return;
+  if (fb.userId !== state.currentUser && !isAdmin()) return;
+  state.feedbacks = state.feedbacks.filter(f => f.id !== fbId);
+  saveState();
+  renderFeedbackList();
+}
+
+function renderFeedbackList() {
+  const el = document.getElementById('feedback-list');
+  if (!el) return;
+  const list = (state.feedbacks || []).slice(0, 30);
+  if (!list.length) {
+    el.innerHTML = '<p class="text-xs text-gray-300 text-center py-3">아직 피드백이 없어요. 첫 번째로 남겨보세요!</p>';
+    return;
+  }
+  el.innerHTML = list.map(fb => {
+    const canDel = isAdmin() || fb.userId === state.currentUser;
+    const d = new Date(fb.createdAt);
+    const ts = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0">
+      <span class="badge-${fb.group||'솔라디'} text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5">${(fb.group||'?')[0]}</span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 mb-0.5">
+          <span class="text-xs font-semibold text-gray-800">${fb.name}</span>
+          <span class="text-[10px] text-gray-400">${ts}</span>
+        </div>
+        <p class="text-sm text-gray-700 break-words">${fb.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+      </div>
+      ${canDel ? `<button onclick="deleteFeedback('${fb.id}')" class="text-gray-300 text-lg leading-none flex-shrink-0 active:text-red-400">×</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderFeedbackSection() {
+  return `
+    <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
+      <p class="text-xs text-gray-500 font-semibold mb-2">💬 홈페이지 피드백</p>
+      <div class="flex gap-2 mb-3">
+        <input id="feedback-input" type="text" maxlength="200" placeholder="건의사항이나 수정 요청을 남겨주세요" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-purple-400">
+        <button onclick="submitFeedback()" class="bg-purple-600 text-white px-3 py-2 rounded-xl text-sm font-semibold active:bg-purple-700 flex-shrink-0">등록</button>
+      </div>
+      <div id="feedback-list"></div>
+    </div>`;
+}
+
 function renderDashboard() {
   if (isMember()) { renderMemberDashboard(); return; }
   const allStudents = activeStudents();
@@ -2087,6 +2168,8 @@ function renderDashboard() {
 
       ${renderWeeklyFiles()}
 
+      ${renderFeedbackSection()}
+
       <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
         <div class="grid grid-cols-5 gap-2">
@@ -2100,6 +2183,7 @@ function renderDashboard() {
     </div>
   `;
   document.getElementById('dashboard-content').innerHTML = html;
+  renderFeedbackList();
 }
 
 function renderAdminStats() {
@@ -2234,6 +2318,8 @@ function renderMemberDashboard() {
 
       ${renderWeeklyFiles()}
 
+      ${renderFeedbackSection()}
+
       <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
         <p class="text-xs text-gray-500 font-semibold mb-2">빠른 메뉴</p>
         <div class="grid grid-cols-2 gap-2">
@@ -2246,6 +2332,7 @@ function renderMemberDashboard() {
     </div>
   `;
   document.getElementById('dashboard-content').innerHTML = html;
+  renderFeedbackList();
 }
 
 // ==========================================
