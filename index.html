@@ -2944,43 +2944,42 @@ function savePassageText() {
 
 function _renderPassageImgSection(dateStr) {
   const imgs = qtPassageImages[dateStr] || {};
-  const list = [imgs.img0, imgs.img1].filter(Boolean);
+  // Keep actual slot indices (img0/img1) so delete buttons use correct slot
+  const entries = [['img0',0,imgs.img0],['img1',1,imgs.img1]].filter(([,,v])=>v);
 
-  // Carousel for images (swipe right = 다음)
   let carouselHtml = '';
-  if (list.length === 1) {
+  if (entries.length === 1) {
+    const [,slot,src] = entries[0];
     carouselHtml = `
-      <div class="relative rounded-xl overflow-hidden mt-3">
-        <img src="${list[0]}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
-        ${isAdmin() ? `<button onclick="removePassageImage('${dateStr}',0)" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button>` : ''}
+      <div class="relative rounded-xl mt-3">
+        <img src="${src}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
+        ${isAdmin() ? `<button onclick="event.stopPropagation();removePassageImage('${dateStr}',${slot})" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full z-10">삭제</button>` : ''}
       </div>`;
-  } else if (list.length === 2) {
+  } else if (entries.length === 2) {
+    const [[,s0,src0],[,s1,src1]] = entries;
+    // Show/hide slides directly — no translateX bug
     carouselHtml = `
-      <div class="relative mt-3 rounded-xl overflow-hidden outline-none focus:ring-2 focus:ring-purple-400" id="pcarousel-${dateStr}"
-           data-idx="0" data-date="${dateStr}" tabindex="0"
+      <div id="pcarousel-${dateStr}" data-idx="0" data-date="${dateStr}" tabindex="0" class="outline-none focus:ring-2 focus:ring-purple-400 mt-3 rounded-xl"
            ontouchstart="pcTouchStart(event,this)" ontouchend="pcTouchEnd(event,this)"
            onkeydown="pcKeyDown(event,this)">
-        <div class="flex" id="pcarousel-track-${dateStr}" style="transition:transform .25s;will-change:transform">
-          <div class="relative w-full flex-shrink-0">
-            <img src="${list[0]}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
-            ${isAdmin() ? `<button onclick="removePassageImage('${dateStr}',0)" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button>` : ''}
-          </div>
-          <div class="relative w-full flex-shrink-0">
-            <img src="${list[1]}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
-            ${isAdmin() ? `<button onclick="removePassageImage('${dateStr}',1)" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button>` : ''}
-          </div>
+        <div id="pslide-0-${dateStr}" class="relative rounded-xl">
+          <img src="${src0}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
+          ${isAdmin() ? `<button onclick="event.stopPropagation();removePassageImage('${dateStr}',${s0})" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full z-10">삭제</button>` : ''}
+        </div>
+        <div id="pslide-1-${dateStr}" class="relative rounded-xl" style="display:none">
+          <img src="${src1}" class="w-full object-contain rounded-xl" style="max-height:300px;display:block">
+          ${isAdmin() ? `<button onclick="event.stopPropagation();removePassageImage('${dateStr}',${s1})" class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full z-10">삭제</button>` : ''}
         </div>
         <div class="flex justify-center gap-2 mt-1.5">
           <div id="pdot-0-${dateStr}" class="w-2 h-2 rounded-full bg-purple-500 transition-all"></div>
           <div id="pdot-1-${dateStr}" class="w-2 h-2 rounded-full bg-gray-300 transition-all"></div>
         </div>
-        <p class="text-center text-xs text-gray-300 mt-1">← → 방향키로 넘기기</p>
+        <p class="text-center text-xs text-gray-300 mt-1">← → 방향키 또는 스와이프</p>
       </div>`;
   }
 
   if (!isAdmin()) return carouselHtml;
 
-  // Admin: upload buttons + header
   const uploadBtns = (!imgs.img0 || !imgs.img1) ? `
     <div class="flex gap-2 mt-2">
       ${!imgs.img0 ? `
@@ -3013,9 +3012,9 @@ function pcGo(el, dir) {
   const dateStr = el.dataset.date;
   let idx = Math.max(0, Math.min(1, parseInt(el.dataset.idx || '0') + dir));
   el.dataset.idx = idx;
-  const track = document.getElementById(`pcarousel-track-${dateStr}`);
-  if (track) track.style.transform = `translateX(-${idx * 100}%)`;
   [0, 1].forEach(i => {
+    const slide = document.getElementById(`pslide-${i}-${dateStr}`);
+    if (slide) slide.style.display = i === idx ? 'block' : 'none';
     const dot = document.getElementById(`pdot-${i}-${dateStr}`);
     if (dot) dot.className = `w-2 h-2 rounded-full transition-all ${i === idx ? 'bg-purple-500' : 'bg-gray-300'}`;
   });
@@ -3747,7 +3746,7 @@ function scanQRFrame() {
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   if (typeof jsQR === 'undefined') return;
-  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
   if (code) processScannedQR(code.data);
 }
 
@@ -3763,6 +3762,11 @@ function processScannedQR(qrData) {
     const token = urlParams.get('qr');
     if (!token) throw new Error('invalid');
     data = JSON.parse(decodeURIComponent(escape(atob(token))));
+    // 짧은 필드명 → 긴 필드명 정규화
+    if (data.t !== undefined) {
+      data.type = data.t === 'S' ? '토요일' : '주일';
+      data.date = data.d; data.start = data.s; data.end = data.e; data.late = data.l;
+    }
   } catch(e) {
     if (resultEl) resultEl.innerHTML = '<p class="text-center text-red-600 font-semibold py-2">유효하지 않은 QR 코드입니다</p>';
     return;
@@ -3844,8 +3848,11 @@ function generateQR() {
   const late = document.getElementById('qr-late').value;
   if (!date) { alert('날짜를 선택해 주세요'); return; }
 
-  const token = btoa(unescape(encodeURIComponent(JSON.stringify({ type:qrType, date, start, end, late, ts: Date.now() }))));
-  const url = `${location.origin}${location.pathname}?qr=${token}`;
+  // 짧은 필드명으로 토큰 크기 줄임 → QR 복잡도 감소
+  const payload = { t: qrType === '토요일' ? 'S' : 'U', d: date, s: start, e: end, l: late, ts: Date.now() };
+  const token = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  // encodeURIComponent: base64의 +/= 등이 URLSearchParams에서 깨지지 않도록
+  const url = `${location.origin}${location.pathname}?qr=${encodeURIComponent(token)}`;
   const output = document.getElementById('qr-output');
   output.innerHTML = '<p class="text-xs text-gray-400 py-2">생성 중...</p>';
 
@@ -3856,11 +3863,11 @@ function generateQR() {
   output.innerHTML = '<div id="qr-canvas-wrap" style="display:flex;justify-content:center;padding:8px 0"></div>';
   new QRCode(document.getElementById('qr-canvas-wrap'), {
     text: url,
-    width: 210,
-    height: 210,
+    width: 280,
+    height: 280,
     colorDark: '#000000',
     colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M
+    correctLevel: QRCode.CorrectLevel.L
   });
 
   document.getElementById('qr-info').textContent = `${qrType} ${date} | ${start}~${end} | 지각: ${late} 이후`;
@@ -4335,7 +4342,11 @@ function checkQRAttendance() {
   if (!qr) return;
 
   try {
-    const data = JSON.parse(decodeURIComponent(escape(atob(qr))));
+    const raw = JSON.parse(decodeURIComponent(escape(atob(qr))));
+    // 짧은 필드명 → 긴 필드명 정규화
+    const data = raw.t !== undefined
+      ? { type: raw.t === 'S' ? '토요일' : '주일', date: raw.d, start: raw.s, end: raw.e, late: raw.l, ts: raw.ts }
+      : raw;
     const now = new Date();
     const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const nowDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
