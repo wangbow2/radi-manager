@@ -85,7 +85,7 @@
       <h1 class="text-lg font-bold cursor-pointer active:opacity-70" onclick="navigate('dashboard')">수영로 LADI</h1>
     </div>
     <div class="flex items-center gap-2">
-      <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-06</div>
+      <div id="header-month" class="text-sm bg-purple-600 px-3 py-1 rounded-full cursor-pointer" onclick="showMonthPicker()">2026-05</div>
       <button id="header-user-btn" onclick="showUserMenu()" class="flex items-center gap-1 bg-purple-600 px-2 py-1 rounded-full text-sm">
         <div class="header-user-icon w-5 h-5 rounded-full bg-purple-400 overflow-hidden flex items-center justify-center text-xs font-bold" id="header-user-icon"></div>
         <span id="header-user-name" class="text-xs max-w-16 truncate"></span>
@@ -124,8 +124,8 @@
         <button onclick="selectCheckMonth('2026-02')" data-cm="2026-02" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">2월</button>
         <button onclick="selectCheckMonth('2026-03')" data-cm="2026-03" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">3월</button>
         <button onclick="selectCheckMonth('2026-04')" data-cm="2026-04" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">4월</button>
-        <button onclick="selectCheckMonth('2026-05')" data-cm="2026-05" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">5월</button>
-        <button onclick="selectCheckMonth('2026-06')" data-cm="2026-06" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-purple-600 text-white">6월</button>
+        <button onclick="selectCheckMonth('2026-05')" data-cm="2026-05" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-purple-600 text-white">5월</button>
+        <button onclick="selectCheckMonth('2026-06')" data-cm="2026-06" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">6월</button>
         <button onclick="selectCheckMonth('2026-07')" data-cm="2026-07" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">7월</button>
         <button onclick="selectCheckMonth('2026-08')" data-cm="2026-08" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">8월</button>
         <button onclick="selectCheckMonth('2026-09')" data-cm="2026-09" class="cm-tab text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600">9월</button>
@@ -1025,10 +1025,12 @@ function _fsSaveDebounced() {
 function _applyFsData(fsData) {
   const localUser = state.currentUser;
   const localMonth = state.month;
+  const localPage = state.page;
   Object.assign(state, fsData);
   state.currentUser = localUser;
   state.month = localMonth || state.month || '2026-05';
-  localStorage.setItem('radi_v4', JSON.stringify({...fsData, currentUser: localUser}));
+  state.page = localPage || 'dashboard';
+  localStorage.setItem('radi_v4', JSON.stringify({...fsData, currentUser: localUser, page: state.page}));
 }
 
 function _renderCurrentPage() {
@@ -2704,18 +2706,18 @@ function renderQTSubmit() {
 
   const calRows = calWeeks.map(w => {
     const cells = w.weekDays.map(day => {
-      if (!day.inMonth || !day.passage) {
-        return `<div class="flex-1 min-w-0 py-1.5 text-center">${day.inMonth?`<span class="text-xs text-gray-200">${new Date(day.dateStr+'T00:00:00').getDate()}</span>`:''}</div>`;
+      if (!day.inMonth) {
+        return `<div class="flex-1 min-w-0 py-1.5 text-center"></div>`;
       }
       const done = !!day.entry?.done;
-      const short = day.passage.replace('고린도전서','고전');
+      const short = day.passage ? day.passage.replace('고린도전서','고전').replace('고린도후서','고후') : '';
       const bg = done?'bg-green-100':day.isToday?'bg-blue-50 ring-2 ring-blue-400':day.locked?'bg-gray-50':'bg-white';
       const txt = done?'text-green-700':day.isToday?'text-blue-700':day.locked?'text-gray-400':'text-gray-700';
       const ptxt = done?'text-green-500':day.locked?'text-gray-300':'text-blue-500';
       return `<div class="flex-1 min-w-0 py-1.5 px-0.5 rounded-lg text-center ${bg} ${!day.locked?'cursor-pointer active:scale-95':''} transition-all"
         ${!day.locked?`onclick="openQTDay('${day.dateStr}')"`:''}>
         <p class="text-xs font-bold ${txt}">${new Date(day.dateStr+'T00:00:00').getDate()}</p>
-        <p class="text-[9px] leading-tight mt-0.5 ${ptxt}">${short}</p>
+        ${short?`<p class="text-[9px] leading-tight mt-0.5 ${ptxt}">${short}</p>`:''}
         ${done?'<p class="text-[10px] text-green-600">✓</p>':''}
       </div>`;
     }).join('');
@@ -2810,8 +2812,7 @@ function startEditQTDay(dateStr) {
 
 function renderQTDayView() {
   const dateStr = qtOpenDay;
-  const passage = QT_SCHEDULE[dateStr];
-  if (!passage) { closeQTDay(); return; }
+  const passage = QT_SCHEDULE[dateStr] || '';
 
   // 이미지가 아직 로드 안 됐으면 Firestore에서 가져와 재렌더
   if (qtPassageImages[dateStr] === undefined) {
@@ -4481,8 +4482,7 @@ loadQTImages();
 loadQTPassageImages();
 loadProfiles();
 initKakaoBanner();
-if (!state.month || state.month === '2026-05') state.month = '2026-06';
-
+state.month = state.month || '2026-05';
 document.getElementById('header-month').textContent = state.month;
 initFirestore();
 
