@@ -3556,6 +3556,7 @@ function getLineupRestrictions(studentId, month, weekIdx, svc) {
   const qt = parseInt(c.qt);
   if (c.qt !== '' && c.qt !== 'X' && !isNaN(qt) && qt < 4) restrictions.push(`QT ${qt}/4회`);
   if (c.gate === 'X') restrictions.push('가사 테스트 미통과');
+  if (c.sat === '결석') restrictions.push('토요일 결석');
   if (c.sun === '지각' && !c.lateContacted) restrictions.push('5분 초과 지각 (미연락)');
   const pastoralApproved = !!state.pastoralApprovals[key];
   return { eligible: restrictions.length === 0, adminRestricted: false, restrictions, pastoralApproved };
