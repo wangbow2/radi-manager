@@ -2901,16 +2901,18 @@ function renderQTSubmit() {
   const doneCount = Object.keys(state.qtDayChecks||{}).filter(k=>k.startsWith(userId+'_'+qtMonth)).length;
   const totalDays = Object.keys(QT_SCHEDULE).filter(k=>k.startsWith(qtMonth)).length;
 
-  // 오늘의 말씀 카드
+  // 오늘의 말씀 + 큐티 폼 인라인
   const todayPassage = QT_SCHEDULE[TODAY_STR] || '';
   const todayText = (state.qtPassageTexts||{})[TODAY_STR] || '';
-  const todayImgs = qtPassageImages[TODAY_STR];
-  const d = new Date(TODAY_STR + 'T00:00:00');
+  const todayImgsData = qtPassageImages[TODAY_STR];
+  const dToday = new Date(TODAY_STR + 'T00:00:00');
   const DAYNAMES2 = ['일','월','화','수','목','금','토'];
-  const todayLabel = `${d.getMonth()+1}월 ${d.getDate()}일 (${DAYNAMES2[d.getDay()]})`;
+  const todayLabel = `${dToday.getMonth()+1}월 ${dToday.getDate()}일 (${DAYNAMES2[dToday.getDay()]})`;
+  const todayLocked = isDayLocked(TODAY_STR);
+  const todayEntry = getQTDayEntry(TODAY_STR);
 
   let todayImgHtml = '';
-  if (todayImgs === undefined) {
+  if (todayImgsData === undefined) {
     loadQTPassageImageForDay(TODAY_STR).then(() => {
       const el = document.getElementById('qt-today-imgs');
       if (el) el.innerHTML = _renderPassageImgSection(TODAY_STR);
@@ -2919,20 +2921,56 @@ function renderQTSubmit() {
     todayImgHtml = _renderPassageImgSection(TODAY_STR);
   }
 
-  const todayCard = (todayText || todayPassage || (todayImgs && (todayImgs.img0||todayImgs.img1))) ? `
-    <div class="bg-white rounded-2xl p-4 shadow-sm cursor-pointer active:bg-gray-50" onclick="openQTDay('${TODAY_STR}')">
+  let todayForm = '';
+  if (todayEntry?.done && !qtEditMode) {
+    todayForm = `<div class="bg-green-50 rounded-xl p-3 mt-3">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-green-700 font-bold text-sm">✓ 큐티 완료</span>
+        <span class="text-xs text-gray-400">${formatDate(todayEntry.createdAt)}</span>
+      </div>
+      ${todayEntry.content ? `<p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">${todayEntry.content}</p>` : ''}
+      ${todayEntry.imageKey && qtImages[todayEntry.imageKey] ? `<img src="${qtImages[todayEntry.imageKey]}" class="w-full rounded-xl mt-2 max-h-48 object-cover">` : ''}
+      ${!todayLocked ? `<button onclick="qtEditMode=true;renderQTSubmit()" class="mt-2 text-xs text-purple-500 underline">수정</button>` : ''}
+    </div>`;
+  } else if (todayLocked) {
+    todayForm = `<div class="bg-gray-50 rounded-xl p-3 mt-3 text-center"><p class="text-xs text-gray-400">🔒 이 주차는 마감되었습니다</p></div>`;
+  } else {
+    const existingContent = qtEditMode && todayEntry ? (todayEntry.content || '') : '';
+    const existingImg = qtEditMode && todayEntry?.imageKey && qtImages[todayEntry.imageKey];
+    todayForm = `<div class="space-y-2 mt-3">
+      <textarea id="qt-day-text" rows="4" placeholder="오늘 말씀을 묵상하며 느낀 점을 써주세요..." class="w-full border rounded-xl p-3 text-sm resize-none">${existingContent}</textarea>
+      ${existingImg ? `<div id="qt-day-img-preview"><div class="relative"><img src="${existingImg}" class="w-full rounded-xl max-h-40 object-cover"><button onclick="_qtDayPendingImg=null;document.getElementById('qt-day-img-preview').innerHTML=''" class="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">삭제</button></div></div>` : `<div id="qt-day-img-preview"></div>`}
+      <div class="flex gap-2">
+        <label for="qt-day-img-cam" class="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-gray-300 rounded-xl p-2 cursor-pointer">
+          <span>📷</span><span class="text-xs text-gray-500">카메라</span>
+        </label>
+        <label for="qt-day-img-gallery" class="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-gray-300 rounded-xl p-2 cursor-pointer">
+          <span>🖼</span><span class="text-xs text-gray-500">갤러리</span>
+        </label>
+      </div>
+      <input type="file" id="qt-day-img-cam" accept="image/*" capture="environment" class="hidden" onchange="qtDayPreviewImg(this)">
+      <input type="file" id="qt-day-img-gallery" accept="image/*" class="hidden" onchange="qtDayPreviewImg(this)">
+      <div class="flex gap-2">
+        ${qtEditMode ? `<button onclick="qtEditMode=false;renderQTSubmit()" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500">취소</button>` : ''}
+        <button onclick="submitQTDay('${TODAY_STR}')" class="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-bold text-sm active:bg-purple-700">${qtEditMode ? '수정 완료' : '큐티 완료 기록하기'}</button>
+      </div>
+    </div>`;
+  }
+
+  const todayCard = `
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
       <div class="flex items-center justify-between mb-2">
         <p class="text-xs text-gray-400 font-semibold">${todayLabel}</p>
         <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">오늘</span>
       </div>
-      ${todayPassage ? `<p class="font-bold text-gray-800 text-sm mb-2">${todayPassage}</p>` : ''}
-      ${todayText ? `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2">
+      ${todayPassage ? `<p class="font-bold text-gray-800 text-sm">${todayPassage}</p>` : ''}
+      ${todayText ? `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
         <p class="text-xs font-semibold text-amber-700 mb-1">📖 개역개정</p>
-        <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap line-clamp-5">${todayText}</p>
+        <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">${todayText}</p>
       </div>` : ''}
-      <div id="qt-today-imgs">${todayImgHtml}</div>
-      <p class="text-xs text-purple-500 text-right mt-2">큐티 올리러 가기 →</p>
-    </div>` : '';
+      <div id="qt-today-imgs" class="mt-2">${todayImgHtml}</div>
+      ${todayForm}
+    </div>`;
 
   document.getElementById('qt-submit-content').innerHTML = `
     <div class="space-y-4">
@@ -3260,7 +3298,7 @@ function submitQTDay(dateStr) {
   qtEditMode = false;
   updateWeekQTCount(dateStr);
   saveState();
-  renderQTDayView();
+  if (qtOpenDay) renderQTDayView(); else renderQTSubmit();
 }
 
 function deleteQTDay(dateStr) {
@@ -3269,7 +3307,7 @@ function deleteQTDay(dateStr) {
   if (state.qtDayChecks) delete state.qtDayChecks[key];
   updateWeekQTCount(dateStr);
   saveState();
-  renderQTDayView();
+  if (qtOpenDay) renderQTDayView(); else renderQTSubmit();
 }
 
 function updateWeekQTCount(dateStr) {
